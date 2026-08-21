@@ -2,52 +2,117 @@
 {% block title %}Case {{ case_id }} — Recovery Agent{% endblock %}
 {% block content %}
 <section class="case-hero">
-  <p class="eyebrow"><a href="/ui/batch">← Batch</a></p>
-  <h1 class="brand-mark sm">Recovery Agent</h1>
+  <p class="eyebrow"><a href="/ui">← Demo home</a></p>
+  <h1 class="brand-mark sm">Case trail</h1>
+
   {% if missing %}
   <p class="lede">Case <code>{{ case_id }}</code> not found.</p>
   {% else %}
-  <p class="lede">Case trail from the ledger only — what the agent saw, proposed, and what gates allowed.</p>
+
+  {% if story %}
+  <div class="story-board" aria-label="Where this case is">
+    <p class="story-title">Where you are</p>
+    <ol class="story-steps">
+      <li class="{% if story.failure %}done{% endif %}">
+        <strong>Failure</strong>
+        <span>{{ story.failure or "—" }}</span>
+      </li>
+      <li class="{% if story.proposed %}done{% endif %}">
+        <strong>Proposed</strong>
+        <span>{{ story.proposed or "waiting" }}{% if story.by_ai %} · AI{% elif story.by_rules %} · rules{% endif %}</span>
+      </li>
+      <li class="{% if story.gates == 'blocked' %}warn{% elif story.gates == 'passed' %}done{% endif %}">
+        <strong>Gates</strong>
+        <span>
+          {% if story.gates == 'blocked' %}Blocked: {{ story.blocked_by }}
+          {% elif story.gates == 'passed' %}All passed — allowed
+          {% else %}Not run yet{% endif %}
+        </span>
+      </li>
+      <li class="{% if story.plink %}done{% endif %}">
+        <strong>Razorpay</strong>
+        <span>{% if story.plink %}<code>{{ story.plink }}</code>{% else %}Not created yet{% endif %}</span>
+      </li>
+    </ol>
+    {% if story.next_hint %}
+    <p class="story-next">{{ story.next_hint }}</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if provenance %}
+  <p class="source-badge tone-{{ provenance.tone }}">{{ provenance.badge }}</p>
+  {% endif %}
+
   <dl class="case-meta">
     <div><dt>Case</dt><dd><code>{{ case.case_id }}</code></dd></div>
     <div><dt>Status</dt><dd>{{ case.status.value if case.status.value is defined else case.status }}</dd></div>
-    <div><dt>Class</dt><dd>{{ case.failure_class or "—" }}</dd></div>
     <div><dt>Amount</dt><dd>₹{{ "{:,.2f}".format(case.amount_paise / 100) }}</dd></div>
     <div><dt>Payer</dt><dd>{{ case.payer_ref }}</dd></div>
   </dl>
+
+  {% if story and not story.plink and story.gates != 'blocked' %}
+  <form method="post" action="/ui/cases/{{ case_id }}/create-link" class="beat-action">
+    <button type="submit" class="cta">Create Razorpay Payment Link <span class="cta-tag live">LIVE</span></button>
+  </form>
+  <p class="step-note">Step 3 for this case — test-mode API only. Match <code>plink_</code> in the dashboard.</p>
+  {% elif story and story.plink %}
+  <p class="plink-banner live">
+    Payment Link: <code>{{ story.plink }}</code>
+    <span class="tag">Match this id in Razorpay Dashboard (Test mode)</span>
+  </p>
+  {% endif %}
+
   {% endif %}
 </section>
 
 {% if not missing %}
 <section class="timeline" aria-label="Ledger trail">
+  <h2 class="timeline-title">Full ledger (audit log)</h2>
+  <p class="step-note" style="margin-bottom:1rem">Scroll only if you need the detail. The summary above is enough for the demo.</p>
   {% for e in ledger %}
-  <article class="entry kind-{{ e.kind.value if e.kind.value is defined else e.kind }} actor-{{ e.actor.value if e.actor.value is defined else e.actor }} {% if e.gate_result and (e.gate_result.value if e.gate_result.value is defined else e.gate_result) == 'block' %}blocked{% endif %} reveal">
+  {% set kind = e.kind.value if e.kind.value is defined else e.kind %}
+  {% set actor = e.actor.value if e.actor.value is defined else e.actor %}
+  {% set gres = e.gate_result.value if e.gate_result and e.gate_result.value is defined else e.gate_result %}
+  <article class="entry kind-{{ kind }} actor-{{ actor }} {% if gres == 'block' %}blocked{% endif %} reveal">
     <header>
       <span class="seq">#{{ e.seq }}</span>
-      <span class="kind">{{ e.kind.value if e.kind.value is defined else e.kind }}</span>
-      <span class="actor">{{ e.actor.value if e.actor.value is defined else e.actor }}</span>
+      <span class="kind">{{ kind }}</span>
+      <span class="actor">{{ actor }}</span>
       {% if e.gate_name %}
-      <span class="gate {{ e.gate_result.value if e.gate_result.value is defined else e.gate_result }}">
-        {{ e.gate_name }} · {{ e.gate_result.value if e.gate_result.value is defined else e.gate_result }}
+      <span class="gate {{ gres }}">
+        {{ e.gate_name }} · {{ gres }}
       </span>
       {% endif %}
       <span class="reason">{{ e.reason_code }}</span>
     </header>
-    {% if (e.kind.value if e.kind.value is defined else e.kind) == 'classification' and (e.actor.value if e.actor.value is defined else e.actor) == 'llm' %}
+    {% if kind == 'classification' and actor == 'llm' %}
     <div class="ai-block">
       <h3>AI diagnosis</h3>
       <p class="summary">{{ e.payload.get('summary', '') }}</p>
       <p class="rationale">{{ e.payload.get('rationale', '') }}</p>
       <p class="meta">class {{ e.payload.get('likely_class', '') }} · confidence {{ e.payload.get('confidence', '') }}</p>
     </div>
-    {% elif (e.kind.value if e.kind.value is defined else e.kind) == 'decision' %}
+    {% elif kind == 'decision' %}
     <div class="ai-block">
-      <h3>Proposed action</h3>
+      <h3>{% if actor == 'llm' %}AI proposed action{% else %}Proposed action{% endif %}</h3>
       <pre>{{ e.payload | tojson(indent=2) }}</pre>
     </div>
-    {% elif (e.kind.value if e.kind.value is defined else e.kind) == 'outcome' %}
+    {% elif kind == 'outcome' %}
     <div class="ai-block">
-      <h3>Execute outcome</h3>
+      <h3>Execute outcome
+        {% if e.payload.get('external_id', '').startswith('plink_') and not e.payload.get('external_id', '').startswith('plink_test_') and e.payload.get('note') == 'razorpay_payment_link_created' %}
+        <span class="mini-badge live">RAZORPAY LIVE</span>
+        {% elif e.payload.get('external_id', '').startswith('plink_') %}
+        <span class="mini-badge sim">SIM / FIXTURE</span>
+        {% endif %}
+      </h3>
+      <pre>{{ e.payload | tojson(indent=2) }}</pre>
+    </div>
+    {% elif kind == 'gate_check' and gres == 'block' %}
+    <div class="ai-block block-callout">
+      <h3>Gate refused this action</h3>
+      <p>Gate <code>{{ e.gate_name }}</code> blocked execution. This is the compliance feature, not a crash.</p>
       <pre>{{ e.payload | tojson(indent=2) }}</pre>
     </div>
     {% else %}

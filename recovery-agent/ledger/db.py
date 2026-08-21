@@ -25,13 +25,26 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./recovery.db")
 
 # SQLite needs check_same_thread=False when shared across FastAPI threads.
-connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+# timeout=60 avoids "database is locked" during slow Ollama / OneDrive sync.
+connect_args: dict = {}
+if DATABASE_URL.startswith("sqlite"):
+    connect_args = {"check_same_thread": False, "timeout": 60}
 
 engine = create_engine(
     DATABASE_URL,
     connect_args=connect_args,
     # echo=True  # uncomment while learning: prints every SQL statement
 )
+
+if DATABASE_URL.startswith("sqlite"):
+    from sqlalchemy import event
+
+    @event.listens_for(engine, "connect")
+    def _sqlite_pragma(dbapi_connection, connection_record):  # type: ignore[no-untyped-def]
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=60000")
+        cursor.close()
 
 # sessionmaker is a factory: call SessionLocal() to get a new Session.
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)

@@ -17,6 +17,8 @@ build/
 
 # Local DBs / eval artifacts
 *.db
+*.db-shm
+*.db-wal
 *.sqlite3
 recovery.db
 **/data/eval_runs/

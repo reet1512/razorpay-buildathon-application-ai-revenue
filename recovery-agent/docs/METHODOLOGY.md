@@ -66,6 +66,23 @@ in a 1..28 day-of-month circle. Transient rail failures can succeed outside that
 - `contacts_per_recovery`
 - retries, recoveries, natural_recoveries
 
+**Winner definition (frozen):** higher `recovered_inr`. Contacts/retries do not
+change the winner. Full write-up: [`docs/SCORING.md`](SCORING.md).
+
+### Rigorous Ours vs B2 CLI
+
+```bash
+# Canonical headline (seed 42)
+python -m eval.harness --benchmark --seed 42 --n 500
+
+# Larger N (less sampling noise — does NOT improve the policy)
+python -m eval.harness --benchmark --seed 42 --n 1000
+
+# Multi-seed (avoid cherry-picking)
+python -m eval.harness --benchmark --multi-seed --n 200
+python -m eval.harness --benchmark --seeds 42-51 --n 1000 --show-cases 20
+```
+
 ## Phase 5 AI (Ollama qwen3:8b)
 
 - Live model used on `/agent/run` for diagnosis, action proposal, message draft.
