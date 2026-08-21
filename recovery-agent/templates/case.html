@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Case {{ case_id }} — Recovery Agent{% endblock %}
+{% block content %}
+<section class="case-hero">
+  <p class="eyebrow"><a href="/ui/batch">← Batch</a></p>
+  <h1 class="brand-mark sm">Recovery Agent</h1>
+  {% if missing %}
+  <p class="lede">Case <code>{{ case_id }}</code> not found.</p>
+  {% else %}
+  <p class="lede">Case trail from the ledger only — what the agent saw, proposed, and what gates allowed.</p>
+  <dl class="case-meta">
+    <div><dt>Case</dt><dd><code>{{ case.case_id }}</code></dd></div>
+    <div><dt>Status</dt><dd>{{ case.status.value if case.status.value is defined else case.status }}</dd></div>
+    <div><dt>Class</dt><dd>{{ case.failure_class or "—" }}</dd></div>
+    <div><dt>Amount</dt><dd>₹{{ "{:,.2f}".format(case.amount_paise / 100) }}</dd></div>
+    <div><dt>Payer</dt><dd>{{ case.payer_ref }}</dd></div>
+  </dl>
+  {% endif %}
+</section>
+
+{% if not missing %}
+<section class="timeline" aria-label="Ledger trail">
+  {% for e in ledger %}
+  <article class="entry kind-{{ e.kind.value if e.kind.value is defined else e.kind }} actor-{{ e.actor.value if e.actor.value is defined else e.actor }} {% if e.gate_result and (e.gate_result.value if e.gate_result.value is defined else e.gate_result) == 'block' %}blocked{% endif %} reveal">
+    <header>
+      <span class="seq">#{{ e.seq }}</span>
+      <span class="kind">{{ e.kind.value if e.kind.value is defined else e.kind }}</span>
+      <span class="actor">{{ e.actor.value if e.actor.value is defined else e.actor }}</span>
+      {% if e.gate_name %}
+      <span class="gate {{ e.gate_result.value if e.gate_result.value is defined else e.gate_result }}">
+        {{ e.gate_name }} · {{ e.gate_result.value if e.gate_result.value is defined else e.gate_result }}
+      </span>
+      {% endif %}
+      <span class="reason">{{ e.reason_code }}</span>
+    </header>
+    {% if (e.kind.value if e.kind.value is defined else e.kind) == 'classification' and (e.actor.value if e.actor.value is defined else e.actor) == 'llm' %}
+    <div class="ai-block">
+      <h3>AI diagnosis</h3>
+      <p class="summary">{{ e.payload.get('summary', '') }}</p>
+      <p class="rationale">{{ e.payload.get('rationale', '') }}</p>
+      <p class="meta">class {{ e.payload.get('likely_class', '') }} · confidence {{ e.payload.get('confidence', '') }}</p>
+    </div>
+    {% elif (e.kind.value if e.kind.value is defined else e.kind) == 'decision' %}
+    <div class="ai-block">
+      <h3>Proposed action</h3>
+      <pre>{{ e.payload | tojson(indent=2) }}</pre>
+    </div>
+    {% elif (e.kind.value if e.kind.value is defined else e.kind) == 'outcome' %}
+    <div class="ai-block">
+      <h3>Execute outcome</h3>
+      <pre>{{ e.payload | tojson(indent=2) }}</pre>
+    </div>
+    {% else %}
+    <pre class="payload">{{ e.payload | tojson(indent=2) }}</pre>
+    {% endif %}
+  </article>
+  {% endfor %}
+</section>
+{% endif %}
+{% endblock %}

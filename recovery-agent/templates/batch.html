@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Batch — Recovery Agent{% endblock %}
+{% block content %}
+<section class="hero-batch">
+  <p class="eyebrow">Track 03 · measured recovery</p>
+  <h1 class="brand-mark">Recovery Agent</h1>
+  <p class="lede">Same failed payment. Different reason. Different next step — scored in rupees against a blind retry ladder.</p>
+
+  <form class="run-form" method="post" action="/ui/batch/run">
+    <label>Seed <input type="number" name="seed" value="{{ run.seed if run else 42 }}" /></label>
+    <label>N <input type="number" name="n" value="{{ run.n if run else 200 }}" min="10" max="1000" /></label>
+    <button type="submit" class="cta">Run batch</button>
+  </form>
+  <form class="run-form secondary" method="post" action="/ui/demo/replay">
+    <button type="submit" class="cta ghost">Open demo case trail</button>
+  </form>
+</section>
+
+{% if run %}
+<section class="scoreboard" aria-label="Ours versus B2">
+  <div class="score-pair">
+    <div class="score ours reveal">
+      <span class="label">Ours · recovered</span>
+      <span class="inr">₹{{ "{:,.0f}".format(by_label['ours'].recovered_inr) if by_label.get('ours') else "—" }}</span>
+      <span class="sub">rate {{ "%.1f"|format((by_label['ours'].recovery_rate * 100) if by_label.get('ours') else 0) }}%</span>
+    </div>
+    <div class="vs">vs</div>
+    <div class="score b2 reveal delay">
+      <span class="label">B2 · recovered</span>
+      <span class="inr">₹{{ "{:,.0f}".format(by_label['b2'].recovered_inr) if by_label.get('b2') else "—" }}</span>
+      <span class="sub">rate {{ "%.1f"|format((by_label['b2'].recovery_rate * 100) if by_label.get('b2') else 0) }}%</span>
+    </div>
+  </div>
+
+  <p class="delta reveal">
+    {% if run.delta_ours_vs_b2_inr is not none %}
+      Net vs B2:
+      <strong>₹{{ "{:,.2f}".format(run.delta_ours_vs_b2_inr) }}</strong>
+      <span class="hint">(restraint may trail raw INR; watch contacts per recovery)</span>
+    {% endif %}
+  </p>
+
+  <dl class="kpi-row reveal">
+    <div>
+      <dt>Contacts / recovery</dt>
+      <dd>
+        Ours {{ "%.2f"|format(by_label['ours'].contacts_per_recovery) if by_label.get('ours') and by_label['ours'].contacts_per_recovery >= 0 else "n/a" }}
+        · B2 {{ "%.2f"|format(by_label['b2'].contacts_per_recovery) if by_label.get('b2') and by_label['b2'].contacts_per_recovery >= 0 else "n/a" }}
+      </dd>
+    </div>
+    <div>
+      <dt>Gate blocks (estimated)</dt>
+      <dd>
+        Ours {{ run.gate_blocks.get('ours', 0) }}
+        · B2 {{ run.gate_blocks.get('b2', 0) }}
+      </dd>
+    </div>
+    <div>
+      <dt>Run</dt>
+      <dd><code>{{ run.run_id }}</code> · seed {{ run.seed }} · n {{ run.n }}</dd>
+    </div>
+  </dl>
+</section>
+{% else %}
+<section class="empty">
+  <p>No batch yet. Hit <strong>Run batch</strong> to score Ours vs B2 without opening a DB tool.</p>
+</section>
+{% endif %}
+
+{% if recent %}
+<section class="recent">
+  <h2>Recent runs</h2>
+  <ul>
+    {% for r in recent %}
+    <li><a href="/ui/batch/{{ r.run_id }}">{{ r.run_id }}</a> · seed {{ r.seed }} · n {{ r.n }}</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}

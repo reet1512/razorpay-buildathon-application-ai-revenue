@@ -1,0 +1,27 @@
+{
+  "_comment": "Maps Razorpay-like error.reason / code strings -> taxonomy class. Estimated fixtures for hackathon — not private Razorpay data.",
+  "by_reason": {
+    "insufficient_funds": "insufficient_funds",
+    "card_expired": "card_expired",
+    "card_declined": "do_not_honour",
+    "payment_failed": "do_not_honour",
+    "do_not_honour": "do_not_honour",
+    "issuer_decline": "do_not_honour",
+    "gateway_timeout": "gateway_timeout",
+    "gateway_error": "issuer_transient",
+    "bank_technical_error": "issuer_transient",
+    "issuer_transient": "issuer_transient",
+    "token_invalid": "token_invalid",
+    "card_reissued": "token_invalid",
+    "mandate_revoked": "mandate_revoked",
+    "mandate_cancelled": "mandate_revoked",
+    "payment_risk_check_failed": "risk_fraud",
+    "risk_fraud": "risk_fraud",
+    "fraud": "risk_fraud"
+  },
+  "by_code": {
+    "BAD_REQUEST_ERROR": null,
+    "GATEWAY_ERROR": "issuer_transient",
+    "SERVER_ERROR": "issuer_transient"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "event_id": "demo_replay_card_expired_v1",
+  "merchant_id": "merch_demo",
+  "payer_ref": "payer_demo",
+  "amount_paise": 49900,
+  "rail": "card",
+  "raw_error_reason": "card_expired",
+  "raw_error_code": "CARD_EXPIRED",
+  "failure_class": "dead_instrument",
+  "score": 0.32,
+  "include_gate_block": true,
+  "diagnosis": {
+    "summary": "Instrument is expired. Retrying the same card wastes attempts.",
+    "likely_class": "dead_instrument",
+    "confidence": 0.93,
+    "rationale": "Decline reason card_expired maps to dead_instrument; prefer one payment link over a blind retry ladder."
+  },
+  "proposal": {
+    "verb": "send_payment_link",
+    "channel": "link",
+    "day_offset": 0,
+    "reason_code": "AI_LINK_DEAD",
+    "note": "One clear update-and-pay link; zero silent retries."
+  },
+  "outcome": {
+    "ok": true,
+    "external_id": "plink_demo_abc123",
+    "recovered": false,
+    "status": "created_link",
+    "note": "fixture_payment_link",
+    "raw": {
+      "short_url": "https://rzp.io/i/demo"
+    }
+  }
+}

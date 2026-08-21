@@ -1,0 +1,129 @@
+# taxonomy.yaml — THE product IP + AI contract (Phase 4)
+#
+# Senior teaching:
+# - You (human) own this file. Cursor scaffolds code; you decide the rules.
+# - Phase 5 AI must PROPOSE only verbs/classes that exist here.
+# - policy_version below is stamped onto ledger / Action rows.
+#
+# Categories (the insight):
+#   time_shiftable  -> money comes later; wait; prefer silent retry
+#   transient       -> rail glitch; retry soon; do not scare the payer
+#   dead            -> instrument broken; ZERO retries; one clear fix path
+#   stop            -> do not automate money movement; escalate human
+#   ambiguous       -> careful single retry + optional link
+
+version: "2026-08-21-phase4"
+
+classes:
+  insufficient_funds:
+    category: time_shiftable
+    default_verb: schedule_retry
+    allow_contact: false
+    max_retries: 2
+    timing: salary_window
+    reason_code: NSF_SALARY_WINDOW
+    notes: "Wait for salary-like credit window; do not spam."
+
+  issuer_transient:
+    category: transient
+    default_verb: schedule_retry
+    allow_contact: false
+    max_retries: 1
+    timing: short_backoff
+    reason_code: TRANSIENT_QUICK_RETRY
+    notes: "Bank/PSP blip — retry soon, stay quiet."
+
+  gateway_timeout:
+    category: transient
+    default_verb: schedule_retry
+    allow_contact: false
+    max_retries: 1
+    timing: short_backoff
+    reason_code: TIMEOUT_RECONCILE_RETRY
+    notes: "In production: reconcile status before retry. Sim: short retry."
+
+  card_expired:
+    category: dead
+    default_verb: send_payment_link
+    allow_contact: true
+    max_retries: 0
+    timing: immediate_contact
+    reason_code: DEAD_CARD_LINK
+    notes: "Zero retries. One update/pay link."
+
+  token_invalid:
+    category: dead
+    default_verb: send_payment_link
+    allow_contact: true
+    max_retries: 0
+    timing: immediate_contact
+    reason_code: DEAD_TOKEN_LINK
+    notes: "Re-token / new instrument journey via link."
+
+  mandate_revoked:
+    category: dead
+    default_verb: request_mandate_update
+    allow_contact: true
+    max_retries: 0
+    timing: immediate_contact
+    reason_code: DEAD_MANDATE_UPDATE
+    notes: "Never debit a revoked mandate. Offer re-mandate once."
+
+  risk_fraud:
+    category: stop
+    default_verb: escalate_human
+    allow_contact: false
+    max_retries: 0
+    timing: none
+    reason_code: RISK_ESCALATE
+    notes: "No automated retry. Human only."
+
+  do_not_honour:
+    category: ambiguous
+    default_verb: schedule_retry
+    allow_contact: true
+    max_retries: 1
+    timing: spaced_then_link
+    reason_code: DNH_SPACED
+    notes: "One spaced retry, then link if still failing (sim emits both planned)."
+
+  ambiguous:
+    category: ambiguous
+    default_verb: escalate_human
+    allow_contact: false
+    max_retries: 0
+    timing: none
+    reason_code: AMBIGUOUS_ESCALATE
+    notes: "Unknown decline text — Phase 5 AI may classify; rules escalate."
+
+# Scoring knobs (deterministic). Documented in docs/METHODOLOGY.md.
+scoring:
+  base_by_category:
+    time_shiftable: 0.72
+    transient: 0.65
+    dead: 0.55
+    ambiguous: 0.40
+    stop: 0.05
+  # Higher amount => slightly more effort allowed (still capped by class).
+  value_weight_per_1000_inr: 0.02
+  value_weight_cap: 0.10
+  # Each prior contact lowers score (fatigue).
+  fatigue_penalty_per_contact: 0.08
+  # Tenure bonus (loyal payers) — small.
+  tenure_bonus_per_365_days: 0.03
+  tenure_bonus_cap: 0.06
+
+# Effort ceilings by score band (used later by gates; Phase 4 stamps on Action).
+effort_bands:
+  low:
+    min_score: 0.0
+    max_attempts: 1
+    allow_contact: false
+  medium:
+    min_score: 0.45
+    max_attempts: 2
+    allow_contact: true
+  high:
+    min_score: 0.70
+    max_attempts: 3
+    allow_contact: true

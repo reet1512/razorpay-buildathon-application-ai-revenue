@@ -1,0 +1,20 @@
+# Virtual environments and secrets must never be committed.
+.venv/
+venv/
+.env
+__pycache__/
+*.py[cod]
+*.db
+*.sqlite3
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+.DS_Store
+recovery.db
+data/eval_runs/
+
+# Local embeddable Python runtime (installed under ../tools) — do not commit wheels cache noise
+*.pyc
