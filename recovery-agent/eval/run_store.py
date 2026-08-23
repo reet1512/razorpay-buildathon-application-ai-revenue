@@ -18,6 +18,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 
 from eval.metrics import BatchMetrics
+from eval.segments import SegmentCompareRow
 
 _ROOT = Path(__file__).resolve().parents[1]
 _DEFAULT_DIR = _ROOT / "data" / "eval_runs"
@@ -32,7 +33,22 @@ class EvalRunRecord(BaseModel):
     metrics: list[BatchMetrics]
     gate_blocks: dict[str, int] = Field(default_factory=dict)
     decline_mix: dict[str, int] = Field(default_factory=dict)
-    delta_ours_vs_b2_inr: Optional[float] = None
+    delta_ours_vs_b2_inr: Optional[float] = Field(
+        default=None,
+        description="Gross recovered INR delta (ours - b2)",
+    )
+    delta_net_ours_vs_b2_inr: Optional[float] = Field(
+        default=None,
+        description="Net recovered INR delta (ours - b2); headline winner",
+    )
+    segments: list[SegmentCompareRow] = Field(
+        default_factory=list,
+        description="Net/gross by recovery class (Task 5)",
+    )
+    cost_overrides: dict[str, float] = Field(
+        default_factory=dict,
+        description="Live assumption overrides applied for this run (Task 6)",
+    )
     sample_case_ids: list[str] = Field(
         default_factory=list,
         description="Optional product case ids created for UI deep-links",

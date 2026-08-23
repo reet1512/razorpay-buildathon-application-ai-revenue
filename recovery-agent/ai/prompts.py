@@ -1,12 +1,10 @@
 """
 ai/prompts.py — prompt builders (no PII).
-
-Teaching:
-- Show the model the CLOSED set of classes/verbs from taxonomy.
-- Ask for JSON only — local models drift less when the schema is in the prompt.
 """
 
 from __future__ import annotations
+
+import hashlib
 
 from ai.schemas import CaseContext
 
@@ -43,6 +41,20 @@ Return ONLY valid JSON with keys:
   body (string, clear, polite, under 500 chars).
 No threats. No dark patterns. One clear next step (update method / pay link).
 """
+
+
+def bundle_hash(*parts: str) -> str:
+    """Stable short hash for prompt versioning in the audit log."""
+    joined = "\n---\n".join(parts)
+    return hashlib.sha256(joined.encode("utf-8")).hexdigest()[:16]
+
+
+def diagnose_prompt_hash(ctx: CaseContext) -> str:
+    return bundle_hash(DIAGNOSE_SYSTEM, diagnose_user(ctx))
+
+
+def propose_prompt_hash(ctx: CaseContext, diagnosis_json: dict) -> str:
+    return bundle_hash(PROPOSE_SYSTEM, propose_user(ctx, diagnosis_json))
 
 
 def diagnose_user(ctx: CaseContext) -> str:

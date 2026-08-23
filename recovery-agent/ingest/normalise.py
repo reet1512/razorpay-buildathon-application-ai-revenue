@@ -6,8 +6,9 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any
+from uuid import uuid4
 
-from ledger.schemas import EventSource, MandateState, PayerContext, Rail, RiskEvent
+from ledger.schemas import EventSource, MandateState, PayerContext, PaymentLinkPaidEvent, Rail, RiskEvent
 
 
 def _rail_from(method: str | None, entity: dict[str, Any]) -> Rail:
@@ -112,4 +113,75 @@ def normalise_razorpay_webhook(body: dict[str, Any]) -> RiskEvent:
             observed_credit_day=credit,
             dnd_flag=bool(body.get("dnd_flag", False)),
         ),
+    )
+
+
+def razorpay_event_name(body: dict[str, Any]) -> str:
+    return str(body.get("event") or "")
+
+
+def normalise_payment_link_paid(body: dict[str, Any]) -> PaymentLinkPaidEvent:
+    """
+    Accept payment_link.paid-shaped Razorpay webhook JSON.
+
+    Supports:
+      {"event":"payment_link.paid","payload":{"payment_link":{"entity":{...}}, "payment": {...}}}
+    """
+    payload = body.get("payload") or {}
+    pl_wrap = payload.get("payment_link") or {}
+    pl_entity = pl_wrap.get("entity") if isinstance(pl_wrap, dict) else None
+    if pl_entity is None and isinstance(pl_wrap, dict):
+        pl_entity = pl_wrap
+
+    if not isinstance(pl_entity, dict):
+        raise ValueError("webhook missing payment_link entity")
+
+    pay_entity: dict[str, Any] = {}
+    pay_wrap = payload.get("payment") or {}
+    if isinstance(pay_wrap, dict):
+        pay_entity = pay_wrap.get("entity") or pay_wrap or {}
+
+    plink_id = str(pl_entity.get("id") or body.get("payment_link_id") or "")
+    if not plink_id.startswith("plink_"):
+        raise ValueError("payment_link.paid missing plink_ id")
+
+    if body.get("event_id"):
+        event_id = str(body["event_id"])
+    elif pl_entity.get("id"):
+        event_id = f"evt_plpaid_{pl_entity['id']}"
+    else:
+        event_id = f"evt_plpaid_{uuid4().hex[:12]}"
+
+    notes = pl_entity.get("notes") or {}
+    case_id = notes.get("case_id") or body.get("case_id")
+    if case_id is not None:
+        case_id = str(case_id)
+
+    amount = int(
+        pl_entity.get("amount_paid")
+        or pl_entity.get("amount")
+        or pay_entity.get("amount")
+        or body.get("amount_paise")
+        or 0
+    )
+
+    created = pl_entity.get("updated_at") or pl_entity.get("created_at")
+    if isinstance(created, (int, float)):
+        occurred = datetime.fromtimestamp(created, tz=timezone.utc)
+    else:
+        occurred = datetime.now(timezone.utc)
+
+    payment_id = pay_entity.get("id") or body.get("payment_id")
+    if payment_id is not None:
+        payment_id = str(payment_id)
+
+    return PaymentLinkPaidEvent(
+        event_id=event_id,
+        payment_link_id=plink_id,
+        payment_id=payment_id,
+        amount_paise=amount,
+        currency=str(pl_entity.get("currency") or pay_entity.get("currency") or "INR"),
+        case_id=case_id,
+        occurred_at=occurred,
+        raw=body,
     )

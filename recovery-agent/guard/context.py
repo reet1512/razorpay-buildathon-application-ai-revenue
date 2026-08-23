@@ -51,3 +51,6 @@ class GuardContext(BaseModel):
     action_fingerprint: str = ""
 
     stop_reason: Optional[str] = None
+
+    # Taxonomy class for prohibited-recovery gate (e.g. risk_fraud)
+    failure_class: Optional[str] = None

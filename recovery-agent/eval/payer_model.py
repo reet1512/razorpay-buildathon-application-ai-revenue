@@ -12,7 +12,8 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass
 
-from eval.types import FailureReason, HiddenPayerTruth, PlannedAction, SimCase, SimVerb
+from eval.recovery_class import RecoveryClass, recovery_class_for
+from eval.types import FailureReason, HiddenPayerTruth, SimCase, SimVerb
 
 
 @dataclass
@@ -123,6 +124,9 @@ def funds_available_on_day(case: SimCase, absolute_dom: int) -> bool:
 
 def try_retry(rng: random.Random, case: SimCase, day_offset: int) -> bool:
     """Silent retry success?"""
+    # Structural invariant: dead instruments never recover via retry alone.
+    if recovery_class_for(case.visible.failure_reason) == RecoveryClass.CUSTOMER_ACTION:
+        return False
     if not case.hidden.instrument_valid:
         return False
     abs_dom = case.failure_dom + day_offset

@@ -13,16 +13,23 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 
+from config.costs import all_costs
+from demo.fraud_gate import run_fraud_gate_demo
 from demo.live_flow import execute_link_for_case, run_ai_demo_case
 from demo.replay import replay_fixture
+from eval.break_even import solve_break_even
+from eval.benchmark import DEFAULT_MULTI_SEEDS, parse_seeds_arg
 from eval.run_store import get_store
-from eval.service import run_eval
+from eval.service import run_eval, run_multi_seed_report
 from eval.types import FailureReason
 from ledger.db import SessionLocal
 from ledger.models import LedgerEntryRow
 from ledger.schemas import LedgerKind
+from guard.audit import build_audit_log, headline_gate_block
+from ledger import reader
 from ledger.service import get_case_trail
 from ai.client import LLMClient
+from api.ui_helpers import build_case_view, platform_metrics, recover_demo_context
 
 # Demo picker labels (same keys as taxonomy / batch mix)
 _FAILURE_OPTIONS = [
@@ -40,6 +47,45 @@ _ROOT = Path(__file__).resolve().parents[1]
 templates = Jinja2Templates(directory=str(_ROOT / "templates"))
 
 router = APIRouter(tags=["ui"])
+
+# Subset of costs.json editable in the assumptions panel (Task 6).
+_EDITABLE_COST_KEYS = (
+    "attempt.sms_dlt",
+    "attempt.whatsapp_utility",
+    "attempt.email",
+    "success.mdr_pct",
+    "customer.churn_prob_per_inappropriate_contact",
+    "customer.ltv",
+    "risk.support_ticket",
+    "risk.chargeback_fee",
+)
+
+
+def _parse_cost_overrides(form) -> dict[str, float]:
+    overrides: dict[str, float] = {}
+    for key in _EDITABLE_COST_KEYS:
+        field = key.replace(".", "__")
+        raw = form.get(f"cost_{field}")
+        if raw is None or str(raw).strip() == "":
+            continue
+        try:
+            overrides[key] = float(raw)
+        except ValueError:
+            continue
+    return overrides
+
+
+def _batch_context(run, *, break_even=None, multi_report=None) -> dict:
+    ctx = {
+        "run": run,
+        "by_label": _metrics_by_label(run) if run else {},
+        "recent": get_store().list_runs(8),
+        "cost_params": all_costs(),
+        "editable_cost_keys": _EDITABLE_COST_KEYS,
+        "break_even": break_even,
+        "multi_report": multi_report,
+    }
+    return ctx
 
 
 def _metrics_by_label(record) -> dict:
@@ -65,10 +111,32 @@ def _latest_live_plink(session) -> tuple[Optional[str], Optional[str]]:
     return None, None
 
 
+def _demo_context(
+    *,
+    run=None,
+    live_case_id=None,
+    live_plink=None,
+) -> dict:
+    ollama = LLMClient()
+    by_label = _metrics_by_label(run) if run else {}
+    return {
+        "run": run,
+        "by_label": by_label,
+        "live_case_id": live_case_id,
+        "live_plink": live_plink,
+        "ollama_up": ollama.available(),
+        "ollama_model": ollama.model,
+        "failure_options": _FAILURE_OPTIONS,
+        "default_reason": FailureReason.insufficient_funds.value,
+        "platform": platform_metrics(run, by_label),
+        **recover_demo_context(),
+    }
+
+
 @router.get("/", response_class=HTMLResponse)
 @router.get("/ui", response_class=HTMLResponse)
 def proof_home(request: Request) -> HTMLResponse:
-    """Bottom-line demo page: measure · bound · real edge."""
+    """Guided demo landing — Evaluate · Recover · Prove."""
     store = get_store()
     run = store.latest()
     session = SessionLocal()
@@ -76,46 +144,109 @@ def proof_home(request: Request) -> HTMLResponse:
         live_case_id, live_plink = _latest_live_plink(session)
     finally:
         session.close()
-    ollama = LLMClient()
     return templates.TemplateResponse(
         request,
         "proof.html",
-        {
-            "run": run,
-            "by_label": _metrics_by_label(run) if run else {},
-            "live_case_id": live_case_id,
-            "live_plink": live_plink,
-            "ollama_up": ollama.available(),
-            "ollama_model": ollama.model,
-            "failure_options": _FAILURE_OPTIONS,
-            "default_reason": FailureReason.card_expired.value,
-        },
+        _demo_context(run=run, live_case_id=live_case_id, live_plink=live_plink),
     )
+
+
+@router.get("/ui/evaluate", response_class=HTMLResponse)
+def evaluate_page(request: Request) -> HTMLResponse:
+    """Alias for batch evaluation (judge-friendly name)."""
+    return batch_page(request)
+
+
+@router.get("/ui/recover", response_class=HTMLResponse)
+def recover_page(request: Request) -> HTMLResponse:
+    """Recover a failed payment — hero demo."""
+    return templates.TemplateResponse(
+        request,
+        "recover.html",
+        _demo_context(),
+    )
+
+
+@router.get("/ui/live-test", response_class=HTMLResponse)
+def live_test_page(request: Request) -> HTMLResponse:
+    """Live Razorpay test payment loop."""
+    session = SessionLocal()
+    try:
+        live_case_id, live_plink = _latest_live_plink(session)
+    finally:
+        session.close()
+    ctx = _demo_context(live_case_id=live_case_id, live_plink=live_plink)
+    return templates.TemplateResponse(request, "live_test.html", ctx)
 
 
 @router.get("/ui/batch", response_class=HTMLResponse)
 def batch_page(request: Request) -> HTMLResponse:
     store = get_store()
-    run = store.latest()
+    run_id = request.query_params.get("run")
+    run = store.get(run_id) if run_id else store.latest()
+    if run is None and run_id:
+        run = store.latest()
+    break_even = None
+    if run:
+        break_even = solve_break_even(seed=run.seed, n=run.n)
     return templates.TemplateResponse(
         request,
         "batch.html",
-        {
-            "run": run,
-            "by_label": _metrics_by_label(run) if run else {},
-            "recent": store.list_runs(8),
-        },
+        _batch_context(run, break_even=break_even),
     )
 
 
 @router.post("/ui/batch/run")
-def batch_run(
-    seed: int = Form(42),
+async def batch_run(request: Request) -> RedirectResponse:
+    form = await request.form()
+    seed = int(form.get("seed", 42))
+    n = max(10, min(int(form.get("n", 200)), 1000))
+    overrides = _parse_cost_overrides(form)
+    record = run_eval(
+        seed=seed,
+        n=n,
+        labels=["b2", "ours"],
+        cost_overrides=overrides or None,
+    )
+    return RedirectResponse(url=f"/ui/batch?run={record.run_id}", status_code=303)
+
+
+@router.get("/ui/batch/distribution", response_class=HTMLResponse)
+def batch_distribution_page(request: Request) -> HTMLResponse:
+    n = int(request.query_params.get("n", 200))
+    seeds_raw = request.query_params.get("seeds", "42-51")
+    try:
+        seeds = parse_seeds_arg(seeds_raw)
+    except ValueError:
+        seeds = list(DEFAULT_MULTI_SEEDS)
+    report = run_multi_seed_report(seeds=seeds, n=max(10, min(n, 1000)))
+    return templates.TemplateResponse(
+        request,
+        "distribution.html",
+        {
+            "report": report,
+            "seeds_arg": seeds_raw,
+            "n": n,
+        },
+    )
+
+
+@router.post("/ui/batch/distribution/run")
+def batch_distribution_run(
     n: int = Form(200),
+    seeds: str = Form("42-51"),
 ) -> RedirectResponse:
     n = max(10, min(int(n), 1000))
-    record = run_eval(seed=int(seed), n=n, labels=["b2", "ours"])
-    return RedirectResponse(url=f"/ui/batch?run={record.run_id}", status_code=303)
+    try:
+        parse_seeds_arg(seeds)
+    except ValueError:
+        seeds = "42-51"
+    from urllib.parse import quote
+
+    return RedirectResponse(
+        url=f"/ui/batch/distribution?n={n}&seeds={quote(seeds)}",
+        status_code=303,
+    )
 
 
 @router.get("/ui/batch/{run_id}", response_class=HTMLResponse)
@@ -124,14 +255,11 @@ def batch_run_view(request: Request, run_id: str) -> HTMLResponse:
     run = store.get(run_id)
     if run is None:
         return RedirectResponse(url="/ui/batch", status_code=303)
+    break_even = solve_break_even(seed=run.seed, n=run.n)
     return templates.TemplateResponse(
         request,
         "batch.html",
-        {
-            "run": run,
-            "by_label": _metrics_by_label(run),
-            "recent": store.list_runs(8),
-        },
+        _batch_context(run, break_even=break_even),
     )
 
 
@@ -147,6 +275,23 @@ def ui_demo_replay() -> RedirectResponse:
         )
     finally:
         session.close()
+
+
+@router.post("/ui/demo/fraud-gate")
+def ui_fraud_gate_demo() -> RedirectResponse:
+    """Scripted beat: model proposes contact on risk/fraud; gate blocks (success)."""
+    try:
+        result = run_fraud_gate_demo()
+    except Exception as exc:
+        from urllib.parse import quote
+
+        msg = quote(str(exc)[:180])
+        return RedirectResponse(url=f"/ui?error={msg}", status_code=303)
+
+    qs = "?gate=prohibited&demo=fraud"
+    if result.get("blocked_by"):
+        qs += f"&blocked={result['blocked_by']}"
+    return RedirectResponse(url=f"/ui/cases/{result['case_id']}{qs}", status_code=303)
 
 
 @router.post("/ui/demo/ai-case")
@@ -363,7 +508,7 @@ def _case_story(ledger: list, case) -> dict:
         if kind == "classification":
             failure = payload.get("likely_class") or failure
         if kind == "decision":
-            action = payload.get("action") or payload
+            action = payload.get("validated") or payload.get("action") or payload
             if isinstance(action, dict):
                 proposed = action.get("verb") or proposed
             if actor == "llm":
@@ -389,9 +534,26 @@ def _case_story(ledger: list, case) -> dict:
         gates = "none"
 
     if plink:
-        next_hint = "Done for the live edge — open this plink_ in the Razorpay test dashboard."
+        if case is not None:
+            status_val = (
+                case.status.value
+                if hasattr(case.status, "value")
+                else str(case.status)
+            )
+            if status_val == "recovered":
+                next_hint = "Recovered — payment_link.paid received. Match webhook payload below against Razorpay dashboard."
+            else:
+                next_hint = (
+                    "Payment Link created. Pay in Razorpay test mode (or POST payment_link.paid webhook). "
+                    "This page refreshes when status flips to RECOVERED."
+                )
+        else:
+            next_hint = "Done for the live edge — open this plink_ in the Razorpay test dashboard."
     elif gates == "blocked":
-        next_hint = "Gates refused contact. That is the compliance beat — try Step 2 again without “gate block”, or Step 3."
+        next_hint = (
+            "Gate blocked this action — that is the product working. "
+            "Compliance refused before any money moved."
+        )
     elif gates == "passed":
         next_hint = "Gates allowed the action. Use the button below for Step 3 (Razorpay), or go home for Measure."
     elif proposed:
@@ -408,6 +570,13 @@ def _case_story(ledger: list, case) -> dict:
         "blocked_by": blocked_by,
         "plink": plink,
         "next_hint": next_hint,
+        "recovered": (
+            case is not None
+            and (
+                case.status.value if hasattr(case.status, "value") else str(case.status)
+            )
+            == "recovered"
+        ),
     }
 
 
@@ -421,6 +590,20 @@ def case_page(request: Request, case_id: str) -> HTMLResponse:
         missing = case is None
         provenance = _classify_case_source(ledger) if not missing else None
         story = _case_story(ledger, case) if not missing else None
+        webhook_paid = reader.latest_payment_link_paid_payload(session, case_id) if not missing else None
+        audit_log = build_audit_log(ledger) if not missing else []
+        gate_block = headline_gate_block(audit_log) if audit_log else None
+        case_view = (
+            build_case_view(
+                case=case,
+                ledger=ledger,
+                story=story,
+                audit_log=audit_log,
+                provenance=provenance,
+            )
+            if not missing and story
+            else None
+        )
         return templates.TemplateResponse(
             request,
             "case.html",
@@ -431,6 +614,10 @@ def case_page(request: Request, case_id: str) -> HTMLResponse:
                 "case_id": case_id,
                 "provenance": provenance,
                 "story": story,
+                "webhook_paid": webhook_paid,
+                "audit_log": audit_log,
+                "gate_block": gate_block,
+                "case_view": case_view,
             },
         )
     finally:

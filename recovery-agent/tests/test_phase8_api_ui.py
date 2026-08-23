@@ -90,7 +90,7 @@ def test_demo_replay_and_case_trail(client: TestClient):
 
     ui = client.get(f"/ui/cases/{case_id}")
     assert ui.status_code == 200
-    assert b"AI diagnosis" in ui.content
+    assert b"Recovery pipeline" in ui.content
     assert b"contact_window" in ui.content
     assert b"block" in ui.content
 
@@ -100,6 +100,7 @@ def test_batch_ui_renders_after_run(client: TestClient):
     page = client.get("/ui/batch")
     assert page.status_code == 200
     assert b"Recovery Agent" in page.content
+    assert b"Evaluate" in page.content
     assert b"Gate blocks" in page.content
 
 

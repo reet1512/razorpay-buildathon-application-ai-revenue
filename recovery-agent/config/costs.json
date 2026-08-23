@@ -1,0 +1,74 @@
+{
+  "_note": "All INR. source must be one of: dashboard | invoice | published | ASSUMPTION",
+  "attempt": {
+    "psp_fee_on_failed_attempt": {
+      "value": 0.0,
+      "source": "dashboard",
+      "note": "Razorpay bills on success, not on failed auth. Verify against our MID contract."
+    },
+    "sms_dlt": {
+      "value": 0.2,
+      "source": "ASSUMPTION",
+      "note": "replace with our SMS vendor invoice rate"
+    },
+    "whatsapp_utility": {
+      "value": 0.12,
+      "source": "ASSUMPTION",
+      "note": "Meta utility template, India"
+    },
+    "email": {
+      "value": 0.01,
+      "source": "ASSUMPTION"
+    },
+    "network_excess_retry_penalty": {
+      "value": 0.0,
+      "source": "ASSUMPTION",
+      "note": "Applies only past card-scheme retry caps. VERIFY current Visa/Mastercard programme thresholds and fees before quoting on stage."
+    }
+  },
+  "success": {
+    "mdr_pct": {
+      "value": 0.02,
+      "source": "published",
+      "note": "Razorpay standard domestic. Verify our negotiated rate."
+    }
+  },
+  "risk": {
+    "chargeback_fee": {
+      "value": 1500,
+      "source": "ASSUMPTION",
+      "note": "pull exact figure from Razorpay dashboard"
+    },
+    "support_ticket": {
+      "value": 35,
+      "source": "ASSUMPTION",
+      "note": "fully-loaded cost per ticket"
+    },
+    "issuer_auth_decay_pct_per_excess_attempt": {
+      "value": 0.002,
+      "source": "ASSUMPTION",
+      "note": "unsourceable — must be shown as a modelling assumption in the UI"
+    }
+  },
+  "customer": {
+    "churn_prob_per_inappropriate_contact": {
+      "value": 0.01,
+      "source": "ASSUMPTION"
+    },
+    "ltv": {
+      "value": 4800,
+      "source": "ASSUMPTION"
+    }
+  },
+  "scheme_limits": {
+    "max_attempts_per_transaction_30d": {
+      "value": 15,
+      "source": "ASSUMPTION",
+      "note": "VERIFY against current card scheme rules"
+    },
+    "max_attempts_hard_decline": {
+      "value": 1,
+      "source": "ASSUMPTION"
+    }
+  }
+}

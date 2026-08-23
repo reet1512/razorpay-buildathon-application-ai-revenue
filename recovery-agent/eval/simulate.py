@@ -20,6 +20,7 @@ from eval.payer_model import (
     try_natural_recovery,
     try_retry,
 )
+from eval.recovery_class import RecoveryClass, recovery_class_for
 from eval.types import CaseOutcome, PlannedAction, SimCase
 
 
@@ -38,32 +39,38 @@ def run_case(
     fatigue = FatigueState()
     contacts = 0
     retries = 0
+    wasted_attempts = 0
     notes: list[str] = []
+    rc = recovery_class_for(case.visible.failure_reason)
 
     # If the policy does nothing, still allow natural recovery (B0 spirit).
     if not actions:
         if try_natural_recovery(rng, case):
             return CaseOutcome(
-                case_key=case.visible.case_key,
-                recovered=True,
-                recovered_paise=case.visible.amount_paise,
-                contacts=0,
-                retries=0,
-                natural=True,
-                notes=["natural_recovery"],
-            )
+                    case_key=case.visible.case_key,
+                    recovered=True,
+                    recovered_paise=case.visible.amount_paise,
+                    contacts=0,
+                    retries=0,
+                    wasted_attempts=0,
+                    natural=True,
+                    notes=["natural_recovery"],
+                )
         return CaseOutcome(
             case_key=case.visible.case_key,
             recovered=False,
             recovered_paise=0,
             contacts=0,
             retries=0,
+            wasted_attempts=0,
             notes=["no_action_no_natural"],
         )
 
     for action in actions:
         if is_retry_verb(action.verb):
             retries += 1
+            if rc == RecoveryClass.CUSTOMER_ACTION:
+                wasted_attempts += 1
             ok = try_retry(rng, case, action.day_offset)
             notes.append(f"retry@{action.day_offset}:{'ok' if ok else 'fail'}")
             if ok:
@@ -73,6 +80,7 @@ def run_case(
                     recovered_paise=case.visible.amount_paise,
                     contacts=contacts,
                     retries=retries,
+                    wasted_attempts=wasted_attempts,
                     notes=notes,
                 )
 
@@ -87,6 +95,7 @@ def run_case(
                     recovered_paise=case.visible.amount_paise,
                     contacts=contacts,
                     retries=retries,
+                    wasted_attempts=wasted_attempts,
                     notes=notes,
                 )
 
@@ -101,6 +110,7 @@ def run_case(
         recovered_paise=0,
         contacts=contacts,
         retries=retries,
+        wasted_attempts=wasted_attempts,
         notes=notes,
     )
 

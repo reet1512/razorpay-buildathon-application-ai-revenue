@@ -75,6 +75,7 @@ class LedgerKind(str, Enum):
     action = "action"
     outcome = "outcome"
     stop = "stop"
+    memory_retrieval = "memory_retrieval"
 
 
 class LedgerActor(str, Enum):
@@ -214,4 +215,28 @@ class IngestResult(BaseModel):
     case_id: str
     event_id: str
     duplicate: bool
+    ledger_seq: Optional[int] = None
+
+
+class PaymentLinkPaidEvent(BaseModel):
+    """Normalised payment_link.paid webhook (test-mode edge)."""
+
+    event_id: str
+    event_name: str = "payment_link.paid"
+    payment_link_id: str
+    payment_id: Optional[str] = None
+    amount_paise: int = Field(default=0, ge=0)
+    currency: str = "INR"
+    case_id: Optional[str] = None
+    occurred_at: datetime
+    raw: dict[str, Any] = Field(default_factory=dict)
+
+
+class PaymentLinkPaidResult(BaseModel):
+    case_id: str
+    event_id: str
+    duplicate: bool
+    recovered: bool
+    payment_link_id: str
+    payment_id: Optional[str] = None
     ledger_seq: Optional[int] = None

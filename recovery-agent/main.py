@@ -10,6 +10,10 @@ main.py — FastAPI entrypoint (Phases 0-9).
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 

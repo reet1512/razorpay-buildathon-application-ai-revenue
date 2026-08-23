@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+
+{% block title %}Multi-seed distribution — Recovery Agent{% endblock %}
+
+{% block content %}
+
+<section class="hero-batch">
+
+  <p class="eyebrow"><a href="/ui/evaluate">← Evaluate</a> · <span class="pill sim">SIM</span> Distribution</p>
+
+  <h1 class="brand-mark sm">Net delta across seeds</h1>
+
+  <p class="lede">Same n cases per seed. Winner on <strong>net</strong> recovered — not cherry-picked seed 42.</p>
+
+
+
+  <form class="run-form" method="post" action="/ui/batch/distribution/run">
+
+    <label>Seeds <input type="text" name="seeds" value="{{ seeds_arg }}" placeholder="42-51" /></label>
+
+    <label>N <input type="number" name="n" value="{{ n }}" min="10" max="1000" /></label>
+
+    <button type="submit" class="cta">Re-run distribution</button>
+
+  </form>
+
+  <p class="step-note">Default: seeds 42–51 (10 seeds), n=200 each. First load may take ~10–20s.</p>
+
+</section>
+
+
+
+{% set stats = report.delta_net_recovered_stats %}
+
+<section class="money-strip reveal" aria-label="Distribution summary">
+
+  <p class="money-strip-label">Net delta (Ours − B2) per seed</p>
+
+  <p class="money-strip-value">
+
+    median ₹{{ "{:,.0f}".format(stats.median) }}
+
+    <span class="money-strip-meta inline-meta">p10 ₹{{ "{:,.0f}".format(stats.p10) }} · p90 ₹{{ "{:,.0f}".format(stats.p90) }}</span>
+
+  </p>
+
+  <p class="money-strip-meta">
+
+    {{ report.seeds | length }} seeds · n {{ report.n }} ·
+
+    win rate {{ "%.0f"|format(report.win_rate_ours * 100) }}% Ours
+
+    ({{ report.seeds_won_ours }}W / {{ report.seeds_won_b2 }}L / {{ report.seeds_tied }} tie)
+
+  </p>
+
+</section>
+
+
+
+<section class="scoreboard reveal" aria-label="Win rate">
+
+  <dl class="kpi-row">
+
+    <div>
+
+      <dt>Mean net delta</dt>
+
+      <dd>₹{{ "{:,.2f}".format(stats.mean) }}</dd>
+
+    </div>
+
+    <div>
+
+      <dt>Median</dt>
+
+      <dd>₹{{ "{:,.2f}".format(stats.median) }}</dd>
+
+    </div>
+
+    <div>
+
+      <dt>p10 / p90</dt>
+
+      <dd>₹{{ "{:,.0f}".format(stats.p10) }} / ₹{{ "{:,.0f}".format(stats.p90) }}</dd>
+
+    </div>
+
+    <div>
+
+      <dt>Min / max seed delta</dt>
+
+      <dd>₹{{ "{:,.0f}".format(stats.min) }} / ₹{{ "{:,.0f}".format(stats.max) }}</dd>
+
+    </div>
+
+    <div>
+
+      <dt>Worst seed for us</dt>
+
+      <dd>
+
+        {% if report.worst_seed_for_ours is not none %}
+
+        <a href="/ui/batch?run=" onclick="event.preventDefault(); document.getElementById('worst-seed-form').submit();">seed {{ report.worst_seed_for_ours }}</a>
+
+        (₹{{ "{:,.2f}".format(report.worst_seed_delta_net_inr) }})
+
+        <form id="worst-seed-form" method="post" action="/ui/batch/run" class="inline-form">
+
+          <input type="hidden" name="seed" value="{{ report.worst_seed_for_ours }}" />
+
+          <input type="hidden" name="n" value="{{ report.n }}" />
+
+        </form>
+
+        {% else %}—{% endif %}
+
+      </dd>
+
+    </div>
+
+    <div>
+
+      <dt>Best seed for us</dt>
+
+      <dd>seed {{ report.best_seed_for_ours }} (₹{{ "{:,.2f}".format(report.best_seed_delta_net_inr) }})</dd>
+
+    </div>
+
+  </dl>
+
+</section>
+
+
+
+<section class="dist-chart reveal" aria-label="Per-seed net delta bars">
+
+  <h2 class="mix-title">Per-seed net delta (₹)</h2>
+
+  <div class="dist-bars">
+    {% set max_abs = [stats.max, (0 - stats.min)] | max %}
+    {% for p in report.per_seed %}
+    {% set d = p.delta_net_recovered_inr %}
+    {% set w = ((d | abs) / max_abs * 100) if max_abs else 0 %}
+    <div class="dist-row">
+      <span class="dist-label">{% if p.seed == report.headline_seed %}★ {% endif %}{{ p.seed }}</span>
+      <div class="dist-track">
+        <div class="dist-bar {% if d >= 0 %}pos{% else %}neg{% endif %}" style="width: {{ w }}%"></div>
+      </div>
+      <span class="dist-val {% if p.winner == 'ours' %}win{% elif p.winner == 'b2' %}lose{% endif %}">₹{{ "{:,.0f}".format(d) }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  <p class="step-note">★ = headline seed 42. Bar length = |net Δ|; green = Ours wins that seed.</p>
+
+</section>
+
+
+
+<section class="dist-table-wrap reveal">
+
+  <h2 class="mix-title">All seeds</h2>
+
+  <table class="audit-table">
+
+    <thead>
+
+      <tr>
+
+        <th>Seed</th>
+
+        <th>Ours net</th>
+
+        <th>B2 net</th>
+
+        <th>Net Δ</th>
+
+        <th>Winner</th>
+
+        <th></th>
+
+      </tr>
+
+    </thead>
+
+    <tbody>
+
+      {% for p in report.per_seed %}
+
+      <tr>
+
+        <td>{{ p.seed }}{% if p.seed == report.headline_seed %} ★{% endif %}</td>
+
+        <td>₹{{ "{:,.0f}".format(p.ours.net_recovered_inr) }}</td>
+
+        <td>₹{{ "{:,.0f}".format(p.b2.net_recovered_inr) }}</td>
+
+        <td>₹{{ "{:,.2f}".format(p.delta_net_recovered_inr) }}</td>
+
+        <td>{{ p.winner }}</td>
+
+        <td>
+
+          <form method="post" action="/ui/batch/run" class="inline-form">
+
+            <input type="hidden" name="seed" value="{{ p.seed }}" />
+
+            <input type="hidden" name="n" value="{{ report.n }}" />
+
+            <button type="submit" class="linkish">Open batch →</button>
+
+          </form>
+
+        </td>
+
+      </tr>
+
+      {% endfor %}
+
+    </tbody>
+
+  </table>
+
+</section>
+
+
+
+<p class="path-next"><a href="/ui/evaluate">← Back to evaluation</a></p>
+
+{% endblock %}
+

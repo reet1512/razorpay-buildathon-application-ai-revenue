@@ -6,39 +6,52 @@ it out in the PR.
 
 ## Winner (primary)
 
-**Winner = higher `recovered_inr`.**
+**Winner = higher `net_recovered_inr`.**
 
 ```text
-delta = ours.recovered_inr - b2.recovered_inr
-winner = ours if delta > 0 else b2 if delta < 0 else tie
+net = gross_recovered_inr - total_cost_inr
+total_cost = attempt_cost + mdr_cost + risk_cost + customer_cost
+delta_net = ours.net_recovered_inr - b2.net_recovered_inr
+winner = ours if delta_net > 0 else b2 if delta_net < 0 else tie
 ```
 
-Computed in `eval/metrics.py` (`BatchMetrics.net_vs`) and used by
-`eval/benchmark.py`.
+All cost rates live in `config/costs.json` and are loaded via `config/costs.py`.
+Computed in `eval/costing.py` and aggregated in `eval/metrics.py`.
 
-### What counts as recovered
+### Gross recovered (secondary, always shown)
+
+```text
+delta_gross = ours.gross_recovered_inr - b2.gross_recovered_inr
+```
+
+B2 may beat us on gross while we win on net — show both.
+
+### What counts as recovered (gross)
 
 - Simulator plays each policy’s planned actions against hidden payer truth
   (`eval/simulate.py` + `eval/payer_model.py`).
 - On first successful retry/contact (or natural recovery for empty plans),
-  the case contributes `amount_paise` to recovered.
-- `recovered_inr = sum(recovered_paise) / 100`
-- `recovery_rate = recovered_inr / at_risk_inr`
+  the case contributes `amount_paise` to gross recovered.
+- `gross_recovered_inr = sum(recovered_paise) / 100`
+- `recovery_rate = gross_recovered_inr / at_risk_inr`
 
-## What does **not** change the winner
+### Cost components
 
-These are reported for diagnosis / efficiency, **not** folded into a net score:
+| Component | Source |
+|---|---|
+| Attempt cost | Retries (PSP fee + excess penalty past scheme cap) + contacts (SMS / WhatsApp / email rates) |
+| MDR | `success.mdr_pct × gross_recovered_inr` |
+| Risk cost | Support/chargeback/decay assumptions on inappropriate PROHIBITED contact and excess attempts |
+| Customer cost | `churn_prob × ltv` on inappropriate contacts |
+
+### Other batch fields
 
 | Field | Meaning |
 |---|---|
-| `retries` | Silent retry attempts used |
-| `contacts` | Nags / payment links / mandate updates |
-| `contacts_per_recovery` | Friction proxy |
-| Gate block estimates | Compliance pressure (`eval/gate_estimate.py`) |
-
-There is **no** monetary retry cost, spam penalty, or churn cost in the
-simulator today. An “economic/efficiency” view may show contacts/retries, but
-must **not** invent penalty weights to make Ours beat B2.
+| `wasted_attempts` | Retries against `CUSTOMER_ACTION` (structurally zero recovery) |
+| `scheme_cap_breaches` | Cases where retries exceed `scheme_limits.max_attempts_per_transaction_30d` |
+| `forgone_recovery_inr` | Expected recovery refused on `PROHIBITED` (ours only; compliance cost, not a loss) |
+| `cost_per_rupee_recovered` | `total_cost_inr / gross_recovered_inr` |
 
 ## Headline benchmark
 
@@ -47,13 +60,10 @@ must **not** invent penalty weights to make Ours beat B2.
 | Seed | **42** | Fixed reference; changing seed ≠ better model |
 | N | 200 (UI) / 500–1000 (CLI) | Larger N = less sampling noise, not a better policy |
 
-Multi-seed reports (e.g. 42–51) exist to **avoid cherry-picking** a lucky seed.
-Seed 42 remains the single-seed headline.
+Multi-seed reports exist to **avoid cherry-picking** a lucky seed.
 
-## Why raw INR can favor B2
+## Why B2 can win gross but lose net
 
-B2 schedules three retries + one generic nag on **every** failure reason.
-Ours is cause-aware and often refuses retries on dead instruments / risk.
-Under a reward that only counts recovered rupees and ignores contact friction,
-the spray ladder can win raw INR. Scenario + per-case breakdowns exist to show
-**where** that happens — not to retune the agent in this eval task.
+B2 schedules three retries plus one generic nag on **every** failure reason.
+On `CUSTOMER_ACTION` failures, retries are structurally wasted (zero recovery
+probability) but still priced. Net scoreboard makes that visible.

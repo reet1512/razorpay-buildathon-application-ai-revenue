@@ -17,6 +17,7 @@ version: "2026-08-21-phase4"
 classes:
   insufficient_funds:
     category: time_shiftable
+    recovery_class: RETRY_FIXABLE
     default_verb: schedule_retry
     allow_contact: false
     max_retries: 2
@@ -26,6 +27,7 @@ classes:
 
   issuer_transient:
     category: transient
+    recovery_class: RETRY_FIXABLE
     default_verb: schedule_retry
     allow_contact: false
     max_retries: 1
@@ -35,6 +37,7 @@ classes:
 
   gateway_timeout:
     category: transient
+    recovery_class: RETRY_FIXABLE
     default_verb: schedule_retry
     allow_contact: false
     max_retries: 1
@@ -44,6 +47,7 @@ classes:
 
   card_expired:
     category: dead
+    recovery_class: CUSTOMER_ACTION
     default_verb: send_payment_link
     allow_contact: true
     max_retries: 0
@@ -53,6 +57,7 @@ classes:
 
   token_invalid:
     category: dead
+    recovery_class: CUSTOMER_ACTION
     default_verb: send_payment_link
     allow_contact: true
     max_retries: 0
@@ -62,6 +67,7 @@ classes:
 
   mandate_revoked:
     category: dead
+    recovery_class: CUSTOMER_ACTION
     default_verb: request_mandate_update
     allow_contact: true
     max_retries: 0
@@ -71,6 +77,7 @@ classes:
 
   risk_fraud:
     category: stop
+    recovery_class: PROHIBITED
     default_verb: escalate_human
     allow_contact: false
     max_retries: 0
@@ -80,6 +87,7 @@ classes:
 
   do_not_honour:
     category: ambiguous
+    recovery_class: AMBIGUOUS
     default_verb: schedule_retry
     allow_contact: true
     max_retries: 1
@@ -89,6 +97,7 @@ classes:
 
   ambiguous:
     category: ambiguous
+    recovery_class: AMBIGUOUS
     default_verb: escalate_human
     allow_contact: false
     max_retries: 0

@@ -44,7 +44,13 @@ def run_label(label: str, seed: int, n: int):
         raise SystemExit(f"Unknown policy/baseline '{label}'. Choose from: {sorted(POLICIES)}")
     cases = generate_batch(seed=seed, n=n)
     outcomes = run_batch(seed=seed, cases=cases, plan_fn=POLICIES[label])
-    metrics = compute_metrics(label=label, seed=seed, cases=cases, outcomes=outcomes)
+    metrics = compute_metrics(
+        label=label,
+        seed=seed,
+        cases=cases,
+        outcomes=outcomes,
+        plan_fn=POLICIES[label],
+    )
     return cases, outcomes, metrics
 
 
@@ -201,7 +207,13 @@ def main(argv: list[str] | None = None) -> int:
             print("decline_mix:", summarize_mix(cases))
         for label in labels:
             outcomes = run_batch(seed=seed, cases=cases, plan_fn=POLICIES[label])
-            m = compute_metrics(label=label, seed=seed, cases=cases, outcomes=outcomes)
+            m = compute_metrics(
+                label=label,
+                seed=seed,
+                cases=cases,
+                outcomes=outcomes,
+                plan_fn=POLICIES[label],
+            )
             rows.append(m)
         if args.json:
             print(json.dumps([r.model_dump() for r in rows], indent=2))
@@ -212,13 +224,14 @@ def main(argv: list[str] | None = None) -> int:
             ours = next(r for r in rows if r.label == "ours")
             b2 = next(r for r in rows if r.label == "b2")
             print("-" * 40)
-            print(f"ours net_vs b2 (INR): {ours.net_vs(b2):,.2f}")
+            print(f"ours gross delta vs b2 (INR): {ours.gross_delta_inr(b2):,.2f}")
+            print(f"ours net delta vs b2 (INR): {ours.net_delta_inr(b2):,.2f}")
             print(
                 f"ours contacts/recovery vs b2: "
                 f"{ours.contacts_per_recovery} vs {b2.contacts_per_recovery}"
             )
             print(
-                "Note: winner by recovered_inr only; see docs/SCORING.md. "
+                "Note: headline winner by net_recovered_inr; see docs/SCORING.md. "
                 "Use --benchmark for multi-seed / scenario / per-case."
             )
         return 0

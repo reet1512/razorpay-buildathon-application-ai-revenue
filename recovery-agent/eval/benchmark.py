@@ -4,7 +4,7 @@ eval/benchmark.py — rigorous Ours vs B2 evaluation (no policy changes).
 Contracts:
 - seed=42 remains the canonical single-seed headline.
 - For a given (seed, n), cases are generated ONCE and shared by Ours and B2.
-- Winner definition is documented in docs/SCORING.md (raw recovered_inr).
+- Winner definition is documented in docs/SCORING.md (net recovered_inr).
 - Larger N reduces sampling noise; it does not improve the policy.
 """
 
@@ -80,6 +80,8 @@ class ScenarioBreakdownRow(BaseModel):
 class ScalarStats(BaseModel):
     mean: float
     median: float
+    p10: float = 0.0
+    p90: float = 0.0
     stdev: float
     min: float
     max: float
@@ -92,18 +94,14 @@ class SeedPairResult(BaseModel):
     ours: BatchMetrics
     b2: BatchMetrics
     delta_recovered_inr: float
+    delta_net_recovered_inr: float
     winner: Literal["ours", "b2", "tie"]
     cases: list[CaseCompareRow]
     scenarios: list[ScenarioBreakdownRow]
 
 
 class EfficiencyView(BaseModel):
-    """
-    Efficiency fields that already exist on outcomes — NOT invented costs.
-
-    The simulator has no monetary retry/contact penalty. We only surface
-    contacts + retries so friction is visible next to raw INR.
-    """
+    """Friction proxies alongside priced net scoreboard."""
 
     ours_avg_retries_per_case: float
     b2_avg_retries_per_case: float
@@ -111,9 +109,11 @@ class EfficiencyView(BaseModel):
     b2_avg_contacts_per_case: float
     ours_contacts_per_recovery: float
     b2_contacts_per_recovery: float
+    ours_wasted_attempts: int = 0
+    b2_wasted_attempts: int = 0
     note: str = (
-        "No monetary cost/penalty fields exist in the simulator. "
-        "Winner remains raw recovered_inr. Contacts/retries are friction proxies only."
+        "Headline winner = higher net_recovered_inr (gross minus costs from config/costs.json). "
+        "Gross recovered_inr reported separately."
     )
 
 
@@ -122,8 +122,8 @@ class MultiSeedReport(BaseModel):
     seeds: list[int]
     headline_seed: int = HEADLINE_SEED
     scoring_winner: str = (
-        "raw recovered_inr (Ours - B2). See docs/SCORING.md. "
-        "Contacts/retries are reported but do not change the winner."
+        "net_recovered_inr (Ours - B2). See docs/SCORING.md. "
+        "Gross recovered_inr reported separately."
     )
     per_seed: list[SeedPairResult]
     # Totals pooled across all seeds (sum of at-risk / recovered)
@@ -146,11 +146,17 @@ class MultiSeedReport(BaseModel):
     ours_recovered_stats: ScalarStats
     b2_recovered_stats: ScalarStats
     delta_recovered_stats: ScalarStats
+    delta_net_recovered_stats: ScalarStats
     ours_rate_stats: ScalarStats
     b2_rate_stats: ScalarStats
     seeds_won_ours: int
     seeds_won_b2: int
     seeds_tied: int
+    win_rate_ours: float = 0.0
+    worst_seed_for_ours: Optional[int] = None
+    worst_seed_delta_net_inr: float = 0.0
+    best_seed_for_ours: Optional[int] = None
+    best_seed_delta_net_inr: float = 0.0
     efficiency: EfficiencyView
     scenarios_pooled: list[ScenarioBreakdownRow]
 
@@ -172,18 +178,52 @@ def _winner(delta_inr: float, *, tol: float = 0.005) -> Literal["ours", "b2", "t
     return "ours" if delta_inr > 0 else "b2"
 
 
+def _percentile(values: Sequence[float], pct: float) -> float:
+    vals = sorted(values)
+    if not vals:
+        return 0.0
+    if len(vals) == 1:
+        return round(vals[0], 4)
+    k = (len(vals) - 1) * pct / 100.0
+    f = int(k)
+    c = min(f + 1, len(vals) - 1)
+    if f == c:
+        return round(vals[f], 4)
+    return round(vals[f] + (k - f) * (vals[c] - vals[f]), 4)
+
+
 def _scalar_stats(values: Sequence[float]) -> ScalarStats:
     vals = list(values)
     if not vals:
-        return ScalarStats(mean=0.0, median=0.0, stdev=0.0, min=0.0, max=0.0, n=0)
+        return ScalarStats(
+            mean=0.0, median=0.0, p10=0.0, p90=0.0,
+            stdev=0.0, min=0.0, max=0.0, n=0,
+        )
     return ScalarStats(
         mean=round(statistics.fmean(vals), 4),
         median=round(statistics.median(vals), 4),
+        p10=_percentile(vals, 10),
+        p90=_percentile(vals, 90),
         stdev=round(statistics.stdev(vals), 4) if len(vals) > 1 else 0.0,
         min=round(min(vals), 4),
         max=round(max(vals), 4),
         n=len(vals),
     )
+
+
+def worst_seed_for_ours(per_seed: Sequence[SeedPairResult]) -> tuple[Optional[int], float]:
+    """Seed with minimum net delta (ours - b2); most painful for us."""
+    if not per_seed:
+        return None, 0.0
+    worst = min(per_seed, key=lambda p: p.delta_net_recovered_inr)
+    return worst.seed, round(worst.delta_net_recovered_inr, 2)
+
+
+def best_seed_for_ours(per_seed: Sequence[SeedPairResult]) -> tuple[Optional[int], float]:
+    if not per_seed:
+        return None, 0.0
+    best = max(per_seed, key=lambda p: p.delta_net_recovered_inr)
+    return best.seed, round(best.delta_net_recovered_inr, 2)
 
 
 def build_case_rows(
@@ -308,9 +348,22 @@ def compare_seed(seed: int, n: int) -> SeedPairResult:
     cases = generate_batch(seed=seed, n=n)
     ours_out = run_batch(seed=seed, cases=cases, plan_fn=POLICIES["ours"])
     b2_out = run_batch(seed=seed, cases=cases, plan_fn=POLICIES["b2"])
-    ours_m = compute_metrics(label="ours", seed=seed, cases=cases, outcomes=ours_out)
-    b2_m = compute_metrics(label="b2", seed=seed, cases=cases, outcomes=b2_out)
-    delta = round(ours_m.net_vs(b2_m), 2)
+    ours_m = compute_metrics(
+        label="ours",
+        seed=seed,
+        cases=cases,
+        outcomes=ours_out,
+        plan_fn=POLICIES["ours"],
+    )
+    b2_m = compute_metrics(
+        label="b2",
+        seed=seed,
+        cases=cases,
+        outcomes=b2_out,
+        plan_fn=POLICIES["b2"],
+    )
+    gross_delta = round(ours_m.gross_delta_inr(b2_m), 2)
+    net_delta = round(ours_m.net_delta_inr(b2_m), 2)
     rows = build_case_rows(
         seed=seed, cases=cases, ours_outcomes=ours_out, b2_outcomes=b2_out
     )
@@ -319,8 +372,9 @@ def compare_seed(seed: int, n: int) -> SeedPairResult:
         n=n,
         ours=ours_m,
         b2=b2_m,
-        delta_recovered_inr=delta,
-        winner=_winner(delta),
+        delta_recovered_inr=gross_delta,
+        delta_net_recovered_inr=net_delta,
+        winner=_winner(net_delta),
         cases=rows,
         scenarios=scenario_breakdown(rows),
     )
@@ -337,7 +391,8 @@ def run_multi_seed(
 
     ours_rec = [p.ours.recovered_inr for p in per_seed]
     b2_rec = [p.b2.recovered_inr for p in per_seed]
-    deltas = [p.delta_recovered_inr for p in per_seed]
+    deltas = [p.delta_net_recovered_inr for p in per_seed]
+    gross_deltas = [p.delta_recovered_inr for p in per_seed]
     ours_rates = [p.ours.recovery_rate for p in per_seed]
     b2_rates = [p.b2.recovery_rate for p in per_seed]
 
@@ -356,6 +411,10 @@ def run_multi_seed(
     all_cases: list[CaseCompareRow] = []
     for p in per_seed:
         all_cases.extend(p.cases)
+
+    n_seeds = len(seeds_list)
+    worst_seed, worst_delta = worst_seed_for_ours(per_seed)
+    best_seed, best_delta = best_seed_for_ours(per_seed)
 
     return MultiSeedReport(
         n=n,
@@ -386,12 +445,22 @@ def run_multi_seed(
         else 0.0,
         ours_recovered_stats=_scalar_stats(ours_rec),
         b2_recovered_stats=_scalar_stats(b2_rec),
-        delta_recovered_stats=_scalar_stats(deltas),
+        delta_recovered_stats=_scalar_stats(gross_deltas),
+        delta_net_recovered_stats=_scalar_stats(deltas),
         ours_rate_stats=_scalar_stats(ours_rates),
         b2_rate_stats=_scalar_stats(b2_rates),
         seeds_won_ours=sum(1 for p in per_seed if p.winner == "ours"),
         seeds_won_b2=sum(1 for p in per_seed if p.winner == "b2"),
         seeds_tied=sum(1 for p in per_seed if p.winner == "tie"),
+        win_rate_ours=round(
+            sum(1 for p in per_seed if p.winner == "ours") / n_seeds, 4
+        )
+        if n_seeds
+        else 0.0,
+        worst_seed_for_ours=worst_seed,
+        worst_seed_delta_net_inr=worst_delta,
+        best_seed_for_ours=best_seed,
+        best_seed_delta_net_inr=best_delta,
         efficiency=EfficiencyView(
             ours_avg_retries_per_case=round(ours_retries / total_cases, 4)
             if total_cases
@@ -411,6 +480,8 @@ def run_multi_seed(
             b2_contacts_per_recovery=round(b2_contacts / b2_recoveries, 4)
             if b2_recoveries
             else -1.0,
+            ours_wasted_attempts=sum(p.ours.wasted_attempts for p in per_seed),
+            b2_wasted_attempts=sum(p.b2.wasted_attempts for p in per_seed),
         ),
         scenarios_pooled=scenario_breakdown(all_cases),
     )

@@ -103,5 +103,16 @@ class CaseOutcome(BaseModel):
     recovered_paise: int
     contacts: int
     retries: int
+    wasted_attempts: int = Field(
+        default=0,
+        description="Retries against CUSTOMER_ACTION (structurally zero recovery)",
+    )
     natural: bool = False
     notes: list[str] = Field(default_factory=list)
+
+
+def recovery_class_for_reason(reason: FailureReason) -> "RecoveryClass":
+    """Lazy import to keep types.py free of circular imports."""
+    from eval.recovery_class import recovery_class_for
+
+    return recovery_class_for(reason)

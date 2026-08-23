@@ -41,20 +41,35 @@ def record_gate_checks(
     checks: list[GateCheck],
     *,
     policy_version: str = "phase6",
+    ctx: Optional[GuardContext] = None,
+    audit: Optional[dict[str, Any]] = None,
 ) -> list[int]:
-    """Append one ledger row per gate (pass OR block)."""
+    """Append one ledger row per gate (pass OR block) with audit metadata."""
     seqs: list[int] = []
+    audit_base: dict[str, Any] = dict(audit or {})
+    if ctx is not None:
+        audit_base.setdefault("proposed_verb", ctx.action.verb.value)
+        audit_base.setdefault("proposed_channel", ctx.action.channel.value)
+        audit_base.setdefault("failure_class", ctx.failure_class)
+        audit_base.setdefault("action_fingerprint", ctx.action_fingerprint)
     for c in checks:
+        payload = {
+            "gate": c.name,
+            "reason_code": c.reason_code,
+            "verdict": "pass" if c.passed else "block",
+            **audit_base,
+        }
         row = writer.append_ledger(
             session,
             case_id=case_id,
             kind=LedgerKind.gate_check,
             actor=LedgerActor.system,
-            payload={"gate": c.name, "reason_code": c.reason_code},
+            payload=payload,
             reason_code=c.reason_code,
             policy_version=policy_version,
             gate_name=c.name,
             gate_result=GateResult.passed if c.passed else GateResult.blocked,
+            at=ctx.now if ctx is not None else None,
         )
         seqs.append(row.seq)
     return seqs
@@ -67,6 +82,7 @@ def guard_and_maybe_execute(
     *,
     execute_fn: Optional[ExecuteFn] = None,
     policy_version: str = "phase6",
+    audit: Optional[dict[str, Any]] = None,
 ) -> GuardPipelineResult:
     """
     Main Phase 6 entry.
@@ -91,8 +107,16 @@ def guard_and_maybe_execute(
         )
 
     checks = run_gates(ctx)
+    audit_meta = dict(audit or {})
+    if ctx.action.proposed_by is not None:
+        audit_meta.setdefault("proposed_by", ctx.action.proposed_by.value)
     seqs = record_gate_checks(
-        session, case.id, checks, policy_version=policy_version
+        session,
+        case.id,
+        checks,
+        policy_version=policy_version,
+        ctx=ctx,
+        audit=audit_meta,
     )
 
     if not all_passed(checks):

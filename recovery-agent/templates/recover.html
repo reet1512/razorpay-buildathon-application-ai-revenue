@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Recover — Recovery Agent{% endblock %}
+{% block content %}
+<section class="page-hero">
+  <p class="eyebrow"><a href="/ui">← Demo</a> · Recover</p>
+  <h1 class="brand-mark sm">Recover a failed payment</h1>
+  <p class="lede">The agent combines payment context, historical recovery evidence, economics, and safety policies before taking action.</p>
+</section>
+
+<section class="payment-card-demo" aria-label="Sample payment">
+  <p class="card-kicker">Payment</p>
+  <p class="payment-amount">₹499.00</p>
+  <p class="payment-meta">Card · insufficient funds</p>
+  <p class="payment-class"><span class="pill sim">RETRY FIXABLE</span></p>
+  <p class="step-note">Choose a failure reason below to run the live recovery pipeline.</p>
+</section>
+
+<p class="ollama-status {% if ollama_up %}up{% else %}down{% endif %}">
+  {% if ollama_up %}
+  Reasoning model <strong>available</strong> ({{ ollama_model }}). First run may take 30–90 seconds.
+  {% else %}
+  Reasoning model <strong>unavailable</strong> — policy rules will propose the action.
+  {% endif %}
+</p>
+
+{% if rag_enabled %}
+<p class="rag-status-banner rag-active">
+  {{ rag_label }} · {{ rag_provider | capitalize }}
+  {% if similar_cases is not none %} · {{ similar_cases }} similar cases{% endif %}
+  {% if retrieval_latency_label %} · {{ retrieval_latency_label }}{% endif %}
+</p>
+{% elif rag_configured %}
+<p class="rag-notice">Historical payment memory: <strong>{{ rag_label }}</strong>. Inherent is configured but retrieval is not available.</p>
+{% else %}
+<p class="rag-notice">Historical payment memory: <strong>RAG DISABLED</strong>. Enable Inherent to retrieve similar episodes.</p>
+{% endif %}
+
+<label class="reason-pick">
+  <span class="reason-pick-label">Simulate failure reason</span>
+  <select id="demo-reason" aria-label="Failure reason">
+    {% for value, label in failure_options %}
+    <option value="{{ value }}" {% if value == default_reason %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+</label>
+
+<form method="post" action="/ui/demo/ai-case" class="beat-action ai-demo-form">
+  <input type="hidden" name="raw_error_reason" class="reason-field" value="{{ default_reason }}" />
+  <input type="hidden" name="amount_paise" value="49900" />
+  <button type="submit" class="cta cta-hero">Run recovery pipeline</button>
+</form>
+
+<form method="post" action="/ui/demo/fraud-gate" class="beat-action">
+  <button type="submit" class="cta ghost">Demo: fraud policy blocks recovery</button>
+</form>
+<p class="step-note">Fraud demo shows a blocked recovery — compliance working, not an error.</p>
+
+<details class="tech-panel">
+  <summary>Technical details</summary>
+  <ul class="lab-list">
+    <li>
+      <form method="post" action="/ui/demo/ai-case" class="inline-form ai-demo-form">
+        <input type="hidden" name="raw_error_reason" class="reason-field" value="{{ default_reason }}" />
+        <input type="hidden" name="refuse_at_gate" value="1" />
+        <button type="submit" class="linkish">Contact window gate block</button>
+      </form>
+    </li>
+    <li>
+      <form method="post" action="/ui/demo/ai-case" class="inline-form ai-demo-form">
+        <input type="hidden" name="raw_error_reason" class="reason-field" value="{{ default_reason }}" />
+        <input type="hidden" name="force_fallback" value="1" />
+        <button type="submit" class="linkish">Rules only (skip Ollama)</button>
+      </form>
+    </li>
+    <li>
+      <form method="post" action="/ui/demo/replay" class="inline-form">
+        <button type="submit" class="linkish">Offline fixture trail</button>
+      </form>
+    </li>
+  </ul>
+</details>
+
+<script>
+(function () {
+  var sel = document.getElementById("demo-reason");
+  if (!sel) return;
+  function sync() {
+    document.querySelectorAll(".reason-field").forEach(function (el) {
+      el.value = sel.value;
+    });
+  }
+  sel.addEventListener("change", sync);
+  sync();
+})();
+</script>
+{% endblock %}

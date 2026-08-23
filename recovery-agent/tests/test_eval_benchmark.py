@@ -63,6 +63,7 @@ def test_seed_42_deterministic_metrics():
     assert r1.ours.recovered_inr == r2.ours.recovered_inr
     assert r1.b2.recovered_inr == r2.b2.recovered_inr
     assert r1.delta_recovered_inr == r2.delta_recovered_inr
+    assert r1.delta_net_recovered_inr == r2.delta_net_recovered_inr
     assert r1.winner == r2.winner
 
 
@@ -126,9 +127,8 @@ def test_multi_seed_aggregates():
         report.ours_total_recovered_inr
         - sum(p.ours.recovered_inr for p in report.per_seed)
     ) < 0.02
-    assert "recovered_inr" in report.scoring_winner
-    # Efficiency view must not invent monetary penalties
-    assert "No monetary cost" in report.efficiency.note
+    assert "net_recovered_inr" in report.scoring_winner
+    assert "config/costs.json" in report.efficiency.note or "net_recovered_inr" in report.efficiency.note
 
 
 def test_parse_seeds_arg():

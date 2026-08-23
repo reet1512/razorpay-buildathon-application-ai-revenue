@@ -67,6 +67,7 @@ def count_gate_blocks(
                 case_status=CaseStatus.open,
                 action=action,
                 now=now,
+                failure_class=case.visible.failure_reason.value,
                 contacts_used=contacts,
                 attempts_used=attempts,
                 max_contacts=2,

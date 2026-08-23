@@ -13,6 +13,7 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
+from memory.rag import RagMetrics, persist_memory_retrieval, retrieve_for_payment
 from ai.agent import RecoveryAgent, build_context
 from ai.client import LLMClient
 from ai.schemas import AgentRunResult
@@ -88,6 +89,12 @@ def run_ai_demo_case(
         event_id=event_id,
         case_id=case_id,
     )
+
+    rag_metrics: RagMetrics = retrieve_for_payment(
+        failure_reason=raw_error_reason,
+        rail=Rail.card.value,
+    )
+
     agent_result: AgentRunResult = agent.run(ctx)
 
     # --- short write: ledger + gates (+ optional link) ---
@@ -97,6 +104,8 @@ def run_ai_demo_case(
         assert case is not None
 
         persist_agent_run(session, case.id, agent_result)
+        if rag_metrics.enabled:
+            persist_memory_retrieval(session, case.id, rag_metrics)
         case.failure_class = agent_result.diagnosis.likely_class
         try:
             case.score = float(agent_result.diagnosis.confidence)
@@ -128,6 +137,7 @@ def run_ai_demo_case(
             case_status=CaseStatus(case.status),
             action=action,
             now=now,
+            failure_class=agent_result.diagnosis.likely_class or raw_error_reason,
             contacts_used=int(case.contacts_used or 0),
             attempts_used=int(case.attempts_used or 0),
             mandate_state=MandateState.active,
@@ -178,6 +188,7 @@ def run_ai_demo_case(
             "external_id": outcome.external_id if outcome else None,
             "refuse_at_gate": refuse_at_gate,
             "force_fallback": force_fallback,
+            "rag": rag_metrics.to_public_dict(),
         }
     except Exception:
         session.rollback()
@@ -209,6 +220,7 @@ def execute_link_for_case(
         case_status=CaseStatus(case.status),
         action=action,
         now=_DAYTIME,
+        failure_class=raw_error_reason or case.failure_class,
         contacts_used=int(case.contacts_used or 0),
         attempts_used=int(case.attempts_used or 0),
         mandate_state=MandateState.active,

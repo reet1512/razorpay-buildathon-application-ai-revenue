@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Live Test — Recovery Agent{% endblock %}
+{% block content %}
+<section class="page-hero">
+  <p class="eyebrow"><a href="/ui">← Demo</a> · Live Test</p>
+  <h1 class="brand-mark sm">Prove it with Razorpay</h1>
+  <p class="lede">Run the recovery loop against a real Razorpay test payment.</p>
+</section>
+
+<section class="live-flow" aria-label="Live test steps">
+  <ol class="live-steps">
+    <li class="live-step">
+      <span class="live-step-num">1</span>
+      <span class="live-step-label">Create test payment</span>
+    </li>
+    <li class="live-step-arrow" aria-hidden="true">↓</li>
+    <li class="live-step">
+      <span class="live-step-num">2</span>
+      <span class="live-step-label">Payment</span>
+    </li>
+    <li class="live-step-arrow" aria-hidden="true">↓</li>
+    <li class="live-step">
+      <span class="live-step-num">3</span>
+      <span class="live-step-label">Webhook received</span>
+    </li>
+    <li class="live-step-arrow" aria-hidden="true">↓</li>
+    <li class="live-step live-step-final">
+      <span class="live-step-num">4</span>
+      <span class="live-step-label">Recovered</span>
+    </li>
+  </ol>
+</section>
+
+<label class="reason-pick">
+  <span class="reason-pick-label">Failure reason for test case</span>
+  <select id="demo-reason" aria-label="Failure reason">
+    {% for value, label in failure_options %}
+    <option value="{{ value }}" {% if value == default_reason %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+</label>
+
+<form method="post" action="/ui/demo/ai-case" class="beat-action ai-demo-form">
+  <input type="hidden" name="raw_error_reason" class="reason-field" value="{{ default_reason }}" />
+  <input type="hidden" name="create_payment_link" value="1" />
+  <button type="submit" class="cta cta-hero">Create test payment</button>
+</form>
+
+{% if live_plink and live_case_id %}
+<section class="recovered-success reveal">
+  <p class="success-kicker">✓ Payment link created</p>
+  <p class="step-note">Open the case to track webhook → <strong>RECOVERED</strong>.</p>
+  <p class="plink-banner live">
+    <code>{{ live_plink }}</code>
+    <a href="/ui/cases/{{ live_case_id }}" class="cta ghost">View audit trail</a>
+  </p>
+</section>
+{% endif %}
+
+<details class="tech-panel">
+  <summary>Technical setup (test mode)</summary>
+  <p class="step-note">Creates a Razorpay test-mode Payment Link. Complete payment in the Razorpay dashboard, or POST a signed <code>payment_link.paid</code> webhook to <code>/webhooks/razorpay</code>. Use ngrok if testing webhooks locally.</p>
+</details>
+
+<script>
+(function () {
+  var sel = document.getElementById("demo-reason");
+  if (!sel) return;
+  function sync() {
+    document.querySelectorAll(".reason-field").forEach(function (el) {
+      el.value = sel.value;
+    });
+  }
+  sel.addEventListener("change", sync);
+  sync();
+})();
+</script>
+{% endblock %}

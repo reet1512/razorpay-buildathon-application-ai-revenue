@@ -11,7 +11,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from guard.context import GuardContext
-from guard.gates import gate_contact_window, run_gates, all_passed
+from guard.gates import gate_contact_window, gate_prohibited_recovery, run_gates, all_passed
 from guard.pipeline import guard_and_maybe_execute
 from ledger.db import Base
 from ledger.models import CaseRow
@@ -146,3 +146,61 @@ def test_idempotency_blocks_second_execute(session: Session):
     )
     assert r2.allowed is False
     assert r2.blocked_by == "idempotency"
+
+
+def test_prohibited_gate_blocks_fraud_contact(session: Session):
+    """PROHIBITED (risk_fraud): block money/contact; no adapter call."""
+    case = _case(session)
+    case.failure_class = "risk_fraud"
+    session.add(case)
+    session.flush()
+
+    action = Action(
+        verb=ActionVerb.send_payment_link,
+        channel=Channel.link,
+        proposed_by=ProposedBy.llm,
+        reason_code="AI_BAD",
+        failure_class="risk_fraud",
+    )
+    ctx = GuardContext(
+        case_id=case.id,
+        action=action,
+        now=datetime(2026, 8, 21, 6, 0, tzinfo=timezone.utc),
+        failure_class="risk_fraud",
+    )
+    calls: list[str] = []
+
+    result = guard_and_maybe_execute(
+        session,
+        case,
+        ctx,
+        execute_fn=lambda a, c: calls.append(a.verb.value) or {"ok": True},
+        audit={"model": "test-model", "prompt_hash": "abc123"},
+    )
+    session.commit()
+
+    assert result.allowed is False
+    assert result.blocked_by == "prohibited_recovery"
+    assert result.executed is False
+    assert calls == []
+
+    trail = get_case_trail(session, case.id)
+    gate_rows = [e for e in trail["ledger"] if e.kind == LedgerKind.gate_check]
+    blocked = [e for e in gate_rows if e.gate_name == "prohibited_recovery"]
+    assert blocked and blocked[0].gate_result.value == "block"
+    payload = blocked[0].payload or {}
+    assert payload.get("proposed_verb") == "send_payment_link"
+    assert payload.get("failure_class") == "risk_fraud"
+    assert payload.get("model") == "test-model"
+
+
+def test_prohibited_gate_allows_escalate_human():
+    ctx = GuardContext(
+        case_id="c1",
+        action=Action(verb=ActionVerb.escalate_human, channel=Channel.none),
+        now=datetime(2026, 8, 21, 6, 0, tzinfo=timezone.utc),
+        failure_class="risk_fraud",
+    )
+    check = gate_prohibited_recovery(ctx)
+    assert check.passed is True
+    assert check.reason_code == "GATE_PROHIBITED_ESCALATE_OK"

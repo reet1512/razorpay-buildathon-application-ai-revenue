@@ -13,6 +13,8 @@ from datetime import timedelta, timezone
 from guard.context import GuardContext
 from policy.schemas import ActionVerb, Channel
 
+PROHIBITED_FAILURE_CLASSES = frozenset({"risk_fraud"})
+
 
 @dataclass(frozen=True)
 class GateCheck:
@@ -40,6 +42,26 @@ def _is_money_action(ctx: GuardContext) -> bool:
         ActionVerb.send_payment_link,
         ActionVerb.request_mandate_update,
     }
+
+
+def gate_prohibited_recovery(ctx: GuardContext) -> GateCheck:
+    """
+    Block automated money movement / contact on PROHIBITED (risk/fraud).
+
+    escalate_human is always allowed. Compliance blocks here — not the payer model.
+    """
+    name = "prohibited_recovery"
+    fc = (ctx.failure_class or "").strip()
+    if fc not in PROHIBITED_FAILURE_CLASSES:
+        return GateCheck(name, True, "GATE_PROHIBITED_N_A")
+
+    if ctx.action.verb == ActionVerb.escalate_human:
+        return GateCheck(name, True, "GATE_PROHIBITED_ESCALATE_OK")
+
+    if _is_money_action(ctx) or _is_contact_action(ctx):
+        return GateCheck(name, False, "GATE_PROHIBITED")
+
+    return GateCheck(name, True, "GATE_PROHIBITED_N_A")
 
 
 def gate_contact_window(ctx: GuardContext) -> GateCheck:
@@ -127,6 +149,7 @@ def fingerprint_action(ctx: GuardContext) -> str:
 
 
 DEFAULT_GATES = (
+    gate_prohibited_recovery,
     gate_contact_window,
     gate_frequency_cap,
     gate_mandate_validity,

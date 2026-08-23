@@ -1,117 +1,171 @@
 {% extends "base.html" %}
-{% block title %}Measure — Recovery Agent{% endblock %}
+{% block title %}Evaluate — Recovery Agent{% endblock %}
 {% block content %}
-<section class="hero-batch">
-  <p class="eyebrow"><a href="/ui">← Demo home</a> · <span class="pill sim">SIM</span> Step 1 · Measure</p>
-  <h1 class="brand-mark">Ours vs B2</h1>
-  <p class="lede">Same simulated failures. Two policies. Score in rupees. This page never calls Razorpay or Ollama.</p>
+<section class="page-hero">
+  <p class="eyebrow"><a href="/ui">← Demo</a> · <span class="pill sim">SIM</span> Evaluate</p>
+  <h1 class="brand-mark sm">Evaluate</h1>
+  <p class="lede">Does AI recovery beat the baseline?</p>
 
-  <form class="run-form" method="post" action="/ui/batch/run">
+  <form class="run-form batch-main-form" method="post" action="/ui/batch/run" id="batch-run-form">
     <label>Seed <input type="number" name="seed" value="{{ run.seed if run else 42 }}" /></label>
     <label>N <input type="number" name="n" value="{{ run.n if run else 200 }}" min="10" max="1000" /></label>
-    <button type="submit" class="cta">Run comparison</button>
+    <button type="submit" class="cta">Run evaluation</button>
   </form>
-  <p class="step-note">Seed 42 is the headline. Larger N reduces noise — it does not make the policy smarter.</p>
 </section>
 
 {% if run and by_label.get('ours') and by_label.get('b2') %}
 {% set ours = by_label['ours'] %}
 {% set b2 = by_label['b2'] %}
 
-<section class="money-strip reveal" aria-label="Revenue at risk">
-  <p class="money-strip-label">Revenue at risk (same batch for both)</p>
-  <p class="money-strip-value">₹{{ "{:,.0f}".format(ours.at_risk_inr) }}</p>
-  <p class="money-strip-meta">{{ run.n }} cases · seed {{ run.seed }} · winner = higher recovered INR</p>
+<section class="headline-compare reveal" aria-label="Net recovery comparison">
+  <div class="compare-col ours-col">
+    <p class="compare-brand">Our recovery</p>
+    <p class="compare-inr">₹{{ "{:,.0f}".format(ours.net_recovered_inr) }}</p>
+    <p class="compare-sub">Net recovered</p>
+    <p class="compare-meta">Gross ₹{{ "{:,.0f}".format(ours.gross_recovered_inr) }}</p>
+  </div>
+  <div class="compare-col baseline-col">
+    <p class="compare-brand">Baseline</p>
+    <p class="compare-inr">₹{{ "{:,.0f}".format(b2.net_recovered_inr) }}</p>
+    <p class="compare-sub">Net recovered</p>
+    <p class="compare-meta">Gross ₹{{ "{:,.0f}".format(b2.gross_recovered_inr) }}</p>
+  </div>
+  {% if run.delta_net_ours_vs_b2_inr is not none %}
+  <div class="compare-advantage {% if run.delta_net_ours_vs_b2_inr >= 0 %}pos{% else %}neg{% endif %}">
+    <p class="advantage-label">Net advantage</p>
+    <p class="advantage-inr">{% if run.delta_net_ours_vs_b2_inr >= 0 %}+{% endif %}₹{{ "{:,.0f}".format(run.delta_net_ours_vs_b2_inr) }}</p>
+  </div>
+  {% endif %}
 </section>
 
-<section class="scoreboard" aria-label="Ours versus B2">
-  <div class="score-pair">
-    <div class="score ours reveal">
-      <span class="label">Ours · amount recovered</span>
-      <span class="inr">₹{{ "{:,.0f}".format(ours.recovered_inr) }}</span>
-      <span class="sub">{{ "%.1f"|format(ours.recovery_rate * 100) }}% of at-risk · {{ ours.recoveries }} recoveries</span>
-    </div>
-    <div class="vs">vs</div>
-    <div class="score b2 reveal delay">
-      <span class="label">B2 · amount recovered</span>
-      <span class="inr">₹{{ "{:,.0f}".format(b2.recovered_inr) }}</span>
-      <span class="sub">{{ "%.1f"|format(b2.recovery_rate * 100) }}% of at-risk · {{ b2.recoveries }} recoveries</span>
-    </div>
-  </div>
+<p class="eval-meta reveal">₹{{ "{:,.0f}".format(ours.at_risk_inr) }} at risk · {{ run.n }} cases · seed {{ run.seed }}</p>
 
-  <p class="delta reveal">
-    {% if run.delta_ours_vs_b2_inr is not none %}
-      Net recovered vs B2:
-      <strong>₹{{ "{:,.2f}".format(run.delta_ours_vs_b2_inr) }}</strong>
-      <span class="hint">
-        {% if run.delta_ours_vs_b2_inr > 0 %}Ours ahead on raw recovered INR.
-        {% elif run.delta_ours_vs_b2_inr < 0 %}B2 ahead on raw recovered INR — check contacts/retries below.
-        {% else %}Tie on recovered INR.{% endif %}
-        Contacts do not change the winner.
-      </span>
-    {% endif %}
-  </p>
-
-  <dl class="kpi-row reveal">
+<details class="eval-section" open>
+  <summary>Evaluation details</summary>
+  <dl class="kpi-row">
     <div>
-      <dt>At-risk INR</dt>
-      <dd>₹{{ "{:,.0f}".format(ours.at_risk_inr) }} <span class="kpi-muted">(identical)</span></dd>
+      <dt>Cost / ₹ recovered</dt>
+      <dd>Ours {{ "%.3f"|format(ours.cost_per_rupee_recovered) if ours.cost_per_rupee_recovered >= 0 else "n/a" }} · B2 {{ "%.3f"|format(b2.cost_per_rupee_recovered) if b2.cost_per_rupee_recovered >= 0 else "n/a" }}</dd>
     </div>
     <div>
-      <dt>Recovered INR</dt>
-      <dd>Ours ₹{{ "{:,.0f}".format(ours.recovered_inr) }} · B2 ₹{{ "{:,.0f}".format(b2.recovered_inr) }}</dd>
+      <dt>Total cost</dt>
+      <dd>Ours ₹{{ "{:,.0f}".format(ours.total_cost_inr) }} · B2 ₹{{ "{:,.0f}".format(b2.total_cost_inr) }}</dd>
     </div>
     <div>
-      <dt>Retries (total)</dt>
-      <dd>Ours {{ ours.retries }} · B2 {{ b2.retries }}</dd>
+      <dt>Wasted attempts</dt>
+      <dd>Ours {{ ours.wasted_attempts }} · B2 {{ b2.wasted_attempts }}</dd>
     </div>
     <div>
-      <dt>Contacts (total)</dt>
-      <dd>Ours {{ ours.contacts }} · B2 {{ b2.contacts }}</dd>
+      <dt>Retries / contacts</dt>
+      <dd>Ours {{ ours.retries }}/{{ ours.contacts }} · B2 {{ b2.retries }}/{{ b2.contacts }}</dd>
     </div>
     <div>
-      <dt>Contacts / recovery</dt>
-      <dd>
-        Ours {{ "%.2f"|format(ours.contacts_per_recovery) if ours.contacts_per_recovery >= 0 else "n/a" }}
-        · B2 {{ "%.2f"|format(b2.contacts_per_recovery) if b2.contacts_per_recovery >= 0 else "n/a" }}
-      </dd>
+      <dt>Forgone recovery (ours)</dt>
+      <dd>₹{{ "{:,.0f}".format(ours.forgone_recovery_inr) }}</dd>
     </div>
     <div>
       <dt>Gate blocks (est.)</dt>
       <dd>Ours {{ run.gate_blocks.get('ours', 0) }} · B2 {{ run.gate_blocks.get('b2', 0) }}</dd>
     </div>
+    {% if run.decline_mix %}
+    <div>
+      <dt>Failure mix</dt>
+      <dd>{{ run.decline_mix | length }} reason types in batch</dd>
+    </div>
+    {% endif %}
   </dl>
+</details>
 
-  {% if run.decline_mix %}
-  <div class="mix-block reveal">
-    <h2 class="mix-title">Failure mix in this batch</h2>
-    <ul class="mix-list">
-      {% for reason, count in run.decline_mix.items() | sort %}
-      <li><code>{{ reason }}</code> · {{ count }}</li>
-      {% endfor %}
-    </ul>
+<details class="eval-section">
+  <summary>Multi-seed distribution</summary>
+  <p class="step-note">Same n per seed — median / p10 / p90 net delta. Not cherry-picked.</p>
+  <p><a href="/ui/batch/distribution?n={{ run.n }}" class="cta ghost">Open distribution →</a></p>
+</details>
+
+{% if run.segments %}
+<details class="eval-section">
+  <summary>Recovery-class breakdown</summary>
+  {% set seg_max = namespace(v=1) %}
+  {% for seg in run.segments %}
+    {% if seg.ours.net_recovered_inr > seg_max.v %}{% set seg_max.v = seg.ours.net_recovered_inr %}{% endif %}
+    {% if seg.b2.net_recovered_inr > seg_max.v %}{% set seg_max.v = seg.b2.net_recovered_inr %}{% endif %}
+  {% endfor %}
+  <div class="segment-chart compact">
+    {% for seg in run.segments %}
+    <div class="segment-row">
+      <span class="segment-class">{{ seg.recovery_class.replace('_', ' ') }}</span>
+      <div class="segment-bars">
+        <div class="segment-bar-wrap">
+          <span class="segment-bar-label">Ours</span>
+          <div class="segment-track"><div class="segment-bar ours" style="width: {{ (seg.ours.net_recovered_inr / seg_max.v * 100) | round(1) }}%"></div></div>
+          <span class="segment-val">₹{{ "{:,.0f}".format(seg.ours.net_recovered_inr) }}</span>
+        </div>
+        <div class="segment-bar-wrap">
+          <span class="segment-bar-label">B2</span>
+          <div class="segment-track"><div class="segment-bar b2" style="width: {{ (seg.b2.net_recovered_inr / seg_max.v * 100) | round(1) }}%"></div></div>
+          <span class="segment-val">₹{{ "{:,.0f}".format(seg.b2.net_recovered_inr) }}</span>
+        </div>
+      </div>
+    </div>
+    {% if seg.b2_zero_recovery_with_spend and seg.recovery_class == 'CUSTOMER_ACTION' %}
+    <p class="segment-callout">Baseline spent on CUSTOMER_ACTION with zero recoveries — priced waste.</p>
+    {% endif %}
+    {% endfor %}
   </div>
-  {% endif %}
-</section>
+</details>
+{% endif %}
+
+<details class="eval-section assumptions-panel" {% if run.cost_overrides %}open{% endif %}>
+  <summary>Cost assumptions</summary>
+  <p class="step-note">Rates from <code>config/costs.json</code>. Override for this run only.</p>
+  <div class="assumptions-grid">
+    {% for key in editable_cost_keys %}
+    {% set param = cost_params.get(key) %}
+    {% if param %}
+    {% set field = key.replace('.', '__') %}
+    {% set override_val = run.cost_overrides.get(key) if run.cost_overrides else none %}
+    <label class="assumption-field">
+      <span class="assumption-key">{{ key }} <em class="source-tag">{{ param.source }}</em></span>
+      <input type="number" step="any" name="cost_{{ field }}" form="batch-run-form" value="{{ override_val if override_val is not none else param.value }}" />
+    </label>
+    {% endif %}
+    {% endfor %}
+  </div>
+</details>
+
+{% if break_even %}
+<details class="eval-section">
+  <summary>Break-even analysis</summary>
+  <div class="break-even-box">
+    SMS cost at default ₹{{ break_even.default_value }}: net Δ = ₹{{ "{:,.2f}".format(break_even.delta_net_at_default) }}.
+    {% if break_even.break_even_value is not none %}
+    Break-even <code>attempt.sms_dlt</code> ≈ ₹{{ "{:,.2f}".format(break_even.break_even_value) }}.
+    {% else %}
+    {{ break_even.note }}
+    {% endif %}
+  </div>
+</details>
+{% endif %}
 
 <p class="path-next">
-  Next on the demo: <a href="/ui#decide">Step 2 · Decide</a>
-  · <a href="/ui#prove">Step 3 · Prove</a>
+  <a href="/ui/recover">Recover a payment →</a>
+  · <a href="/ui/live-test">Live test →</a>
 </p>
+
 {% else %}
 <section class="empty">
-  <p>No batch yet. Hit <strong>Run comparison</strong> to see revenue at risk and amount recovered.</p>
+  <p>No evaluation yet. Run with seed 42 and n=200 to compare our policy vs baseline.</p>
 </section>
 {% endif %}
 
 {% if recent %}
-<section class="recent">
-  <h2>Recent runs</h2>
-  <ul>
+<details class="eval-section">
+  <summary>Recent runs</summary>
+  <ul class="recent-list">
     {% for r in recent %}
     <li><a href="/ui/batch/{{ r.run_id }}">{{ r.run_id }}</a> · seed {{ r.seed }} · n {{ r.n }}</li>
     {% endfor %}
   </ul>
-</section>
+</details>
 {% endif %}
 {% endblock %}

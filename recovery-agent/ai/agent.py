@@ -219,6 +219,7 @@ class RecoveryAgent:
             validated=validated,
             message=message,
             used_llm=True,
+            ctx=ctx,
         )
         return AgentRunResult(
             context=ctx,
@@ -279,6 +280,7 @@ class RecoveryAgent:
             message=message,
             used_llm=False,
             extra_note=reason,
+            ctx=ctx,
         )
         return AgentRunResult(
             context=ctx,
@@ -301,18 +303,27 @@ class RecoveryAgent:
         message: Optional[MessageDraft],
         used_llm: bool,
         extra_note: str = "",
+        ctx: Optional[CaseContext] = None,
     ) -> list[dict[str, Any]]:
         """
         Shape rows for ledger.append later.
 
         kind/actor match Phase 1 ledger enums.
         """
+        model_name = self.client.model if used_llm else "rules_fallback"
+        prompt_hash = None
+        if used_llm and ctx is not None and proposal is not None:
+            prompt_hash = prompts.propose_prompt_hash(ctx, diagnosis.model_dump())
+
         events: list[dict[str, Any]] = [
             {
                 "kind": "classification",
                 "actor": "llm" if used_llm else "policy",
                 "reason_code": diagnosis.likely_class,
-                "payload": diagnosis.model_dump(),
+                "payload": {
+                    **diagnosis.model_dump(),
+                    "audit": {"model": model_name, "prompt_hash": prompts.diagnose_prompt_hash(ctx) if ctx and used_llm else None},
+                },
             },
             {
                 "kind": "decision",
@@ -322,6 +333,7 @@ class RecoveryAgent:
                     "proposal_raw": proposal.model_dump() if proposal else None,
                     "validated": validated.model_dump(mode="json"),
                     "extra_note": extra_note,
+                    "audit": {"model": model_name, "prompt_hash": prompt_hash},
                 },
             },
         ]

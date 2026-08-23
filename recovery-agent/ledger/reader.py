@@ -9,7 +9,7 @@ Teaching:
 from __future__ import annotations
 
 import json
-from typing import Optional
+from typing import Any, Optional
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -47,6 +47,44 @@ def case_to_view(row: CaseRow) -> CaseView:
         created_at=row.created_at,
         updated_at=row.updated_at,
     )
+
+
+def find_case_id_by_plink(session: Session, plink_id: str) -> Optional[str]:
+    """Resolve case from a prior outcome row that created this Payment Link."""
+    stmt = (
+        select(LedgerEntryRow)
+        .where(LedgerEntryRow.kind == LedgerKind.outcome.value)
+        .order_by(LedgerEntryRow.seq.desc())
+    )
+    for row in session.scalars(stmt).all():
+        try:
+            payload = json.loads(row.payload_json or "{}")
+        except json.JSONDecodeError:
+            continue
+        if str(payload.get("external_id") or "") == plink_id:
+            return row.case_id
+    return None
+
+
+def latest_payment_link_paid_payload(
+    session: Session,
+    case_id: str,
+) -> Optional[dict[str, Any]]:
+    """Most recent payment_link.paid webhook payload recorded on this case."""
+    stmt = (
+        select(LedgerEntryRow)
+        .where(LedgerEntryRow.case_id == case_id)
+        .where(LedgerEntryRow.kind == LedgerKind.event.value)
+        .order_by(LedgerEntryRow.seq.desc())
+    )
+    for row in session.scalars(stmt).all():
+        try:
+            payload = json.loads(row.payload_json or "{}")
+        except json.JSONDecodeError:
+            continue
+        if payload.get("razorpay_event") == "payment_link.paid":
+            return payload
+    return None
 
 
 def list_ledger(session: Session, case_id: str) -> list[LedgerEntryView]:

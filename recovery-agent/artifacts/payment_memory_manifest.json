@@ -1,0 +1,75 @@
+{
+  "corpus_version": "v1",
+  "data_source": "synthetic_simulation",
+  "simulation_version": "v1",
+  "seeds": [
+    42
+  ],
+  "cases_per_seed": 5,
+  "expected_episodes": 5,
+  "uploaded": 5,
+  "completed": 5,
+  "processing": 0,
+  "failed": 0,
+  "skipped": 0,
+  "retry_exhausted": 0,
+  "created_at": "2026-08-23T11:32:18.879430+00:00",
+  "updated_at": "2026-08-23T11:32:26.979454+00:00",
+  "seeder_commit": "360b527",
+  "episodes": {
+    "recovery_v1_seed42_sim_42_0000": {
+      "logical_id": "recovery_v1_seed42_sim_42_0000",
+      "seed": 42,
+      "case_id": "sim_42_0000",
+      "simulation_version": "v1",
+      "status": "completed",
+      "document_id": "e6892935-a27f-493d-9dc7-27ae791cd19f",
+      "document_name": "recovery-sim-v1-seed42-case0.txt"
+    },
+    "recovery_v1_seed42_sim_42_0002": {
+      "logical_id": "recovery_v1_seed42_sim_42_0002",
+      "seed": 42,
+      "case_id": "sim_42_0002",
+      "simulation_version": "v1",
+      "status": "completed",
+      "document_id": "75363c16-ce22-489b-9c03-74319de93934",
+      "document_name": "recovery-sim-v1-seed42-case2.txt"
+    },
+    "recovery_v1_seed42_sim_42_0003": {
+      "logical_id": "recovery_v1_seed42_sim_42_0003",
+      "seed": 42,
+      "case_id": "sim_42_0003",
+      "simulation_version": "v1",
+      "status": "completed",
+      "document_id": "5192bec9-a9d8-46fc-be0a-851fab9a377a",
+      "document_name": "recovery-sim-v1-seed42-case3.txt"
+    },
+    "recovery_v1_seed42_sim_42_0001": {
+      "logical_id": "recovery_v1_seed42_sim_42_0001",
+      "seed": 42,
+      "case_id": "sim_42_0001",
+      "simulation_version": "v1",
+      "status": "completed",
+      "document_id": "2e3676f5-4852-42d2-859d-3c1bb9f84f11",
+      "document_name": "recovery-sim-v1-seed42-case1.txt"
+    },
+    "recovery_v1_seed42_sim_42_0004": {
+      "logical_id": "recovery_v1_seed42_sim_42_0004",
+      "seed": 42,
+      "case_id": "sim_42_0004",
+      "simulation_version": "v1",
+      "status": "completed",
+      "document_id": "7b9ea404-36ed-4bdd-b8a5-4c225b4baeee",
+      "document_name": "recovery-sim-v1-seed42-case4.txt"
+    }
+  },
+  "metrics": {
+    "total_ingestion_seconds": 6.92,
+    "episodes_attempted": 5,
+    "upload_latency_ms_p50": 263.35,
+    "upload_latency_ms_p95": 305.69,
+    "round_trip_ms_p50": 2436.12,
+    "round_trip_ms_p95": 3862.68,
+    "upload_throughput_eps": 0.7222
+  }
+}
