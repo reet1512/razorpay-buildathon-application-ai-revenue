@@ -1,0 +1,60 @@
+{% extends "base_product.html" %}
+{% block title %}Historical Intelligence — Recovery Agent{% endblock %}
+{% set nav_active = 'intelligence' %}
+{% set sidebar = true %}
+{% block sidebar %}
+<p class="p-sidebar-label">Intelligence</p>
+<a href="/ui/intelligence/historical" class="is-active">Historical memory</a>
+<a href="/ui/intelligence/strategies">Strategies</a>
+{% endblock %}
+{% block content %}
+<header class="p-page-header">
+  <nav class="p-breadcrumb"><a href="/ui">Overview</a> / Intelligence / Historical</nav>
+  <h1 class="p-page-title">Historical payment intelligence</h1>
+  <p class="p-page-sub">Search comparable payment incidents from outcome memory.</p>
+</header>
+
+<div class="p-kpi-row">
+  <div class="p-metric"><p class="p-metric-label">Episodes</p><p class="p-metric-value">{{ mock.stats.episodes }}</p></div>
+  <div class="p-metric"><p class="p-metric-label">Comparable cases</p><p class="p-metric-value">{{ mock.stats.comparable }}</p></div>
+  <div class="p-metric"><p class="p-metric-label">Avg similarity</p><p class="p-metric-value">{{ mock.stats.avg_similarity }}</p></div>
+  <div class="p-metric"><p class="p-metric-label">Retrieval latency</p><p class="p-metric-value">{{ mock.stats.latency_ms }} ms</p></div>
+</div>
+
+<section class="p-card">
+  <div class="p-card-body">
+    <div class="p-filter-bar">
+      <input type="search" placeholder="Search payment scenario…" style="flex:1;max-width:24rem" aria-label="Search historical memory" />
+      <select aria-label="Failure reason"><option>All failure reasons</option></select>
+      <select aria-label="Strategy"><option>All strategies</option></select>
+      <select aria-label="Outcome"><option>All outcomes</option></select>
+    </div>
+  </div>
+</section>
+
+<section class="p-card p-mt-1">
+  <div class="p-card-head"><h2 class="p-card-title">Results</h2></div>
+  <div class="p-card-body" style="padding:0">
+    <div class="p-table-wrap">
+      <table class="p-table">
+        <thead>
+          <tr><th>Case</th><th>Similarity</th><th>Failure</th><th>Strategy</th><th>Outcome</th><th>Recovered</th><th>Date</th></tr>
+        </thead>
+        <tbody>
+          {% for row in mock.results %}
+          <tr>
+            <td><a href="/ui/cases/{{ row.case }}" class="case-link">{{ row.case }}</a></td>
+            <td class="num">{{ row.similarity }}</td>
+            <td>{{ row.failure }}</td>
+            <td>{{ row.strategy }}</td>
+            <td>{{ row.outcome }}</td>
+            <td class="num">{{ row.recovered_inr }}</td>
+            <td>{{ row.date }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}

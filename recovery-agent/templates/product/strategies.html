@@ -1,0 +1,57 @@
+{% extends "base_product.html" %}
+{% block title %}Recovery Strategies — Recovery Agent{% endblock %}
+{% set nav_active = 'intelligence' %}
+{% set sidebar = true %}
+{% block sidebar %}
+<p class="p-sidebar-label">Intelligence</p>
+<a href="/ui/intelligence/historical">Historical memory</a>
+<a href="/ui/intelligence/strategies" class="is-active">Strategies</a>
+<a href="/ui/intelligence/strategies#outcomes">Outcomes</a>
+<a href="/ui/intelligence/strategies#economics">Economics</a>
+{% endblock %}
+{% block content %}
+<header class="p-page-header">
+  <nav class="p-breadcrumb"><a href="/ui">Overview</a> / Intelligence / Strategies</nav>
+  <h1 class="p-page-title">Recovery strategies</h1>
+  <p class="p-page-sub">Understand which recovery strategies actually work.</p>
+</header>
+
+<div class="p-filter-bar">
+  <select aria-label="Failure type"><option>All failure types</option>{% for f in mock.filters.failure_types %}<option>{{ f }}</option>{% endfor %}</select>
+  <select aria-label="Payment method"><option>All methods</option>{% for m in mock.filters.methods %}<option>{{ m }}</option>{% endfor %}</select>
+  <select aria-label="Period"><option>Last 30 days</option>{% for p in mock.filters.periods %}<option>{{ p }}</option>{% endfor %}</select>
+</div>
+
+<section class="p-card">
+  <div class="p-card-body" style="padding:0">
+    {% set strategies = mock.strategies %}
+    {% set show_cost = true %}
+    {% include "components/product/_strategy_table.html" %}
+  </div>
+</section>
+
+<div class="p-grid-2col p-mt-1" id="outcomes">
+  <section class="p-card">
+    <div class="p-card-head"><h2 class="p-card-title">Recovery rate</h2></div>
+    <div class="p-card-body">
+      {% for row in mock.strategies[:4] %}
+      <div class="p-bar-h-row">
+        <div class="p-bar-h-head"><span>{{ row.label }}</span><span>{{ row.success_rate }}%</span></div>
+        <div class="p-bar-h-track"><div class="p-bar-h-fill" style="width: {{ row.success_rate }}%"></div></div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  <section class="p-card" id="economics">
+    <div class="p-card-head"><h2 class="p-card-title">Expected value</h2></div>
+    <div class="p-card-body">
+      {% for row in mock.strategies[:4] %}
+      <div class="p-bar-h-row">
+        <div class="p-bar-h-head"><span>{{ row.label }}</span><span>₹{{ row.expected_net }}</span></div>
+        <div class="p-bar-h-track"><div class="p-bar-h-fill p-bar-h-fill--success" style="width: {{ (row.expected_net / 261 * 100) | round(0) }}%"></div></div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}

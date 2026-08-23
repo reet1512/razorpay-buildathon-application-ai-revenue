@@ -1,0 +1,13 @@
+{% macro status_badge(status) %}
+{% if status == 'recovered' %}
+<span class="p-badge p-badge--success">Recovered</span>
+{% elif status == 'failed' %}
+<span class="p-badge p-badge--danger">Failed</span>
+{% elif status == 'blocked' %}
+<span class="p-badge p-badge--warning">Blocked</span>
+{% elif status == 'pending' %}
+<span class="p-badge p-badge--info">Pending</span>
+{% else %}
+<span class="p-badge p-badge--muted">{{ status | title }}</span>
+{% endif %}
+{% endmacro %}

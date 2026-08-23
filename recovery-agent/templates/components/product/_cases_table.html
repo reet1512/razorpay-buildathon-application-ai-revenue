@@ -1,0 +1,31 @@
+{% from "components/product/_macros.html" import status_badge %}
+<div class="p-table-wrap">
+  <table class="p-table">
+    <thead>
+      <tr>
+        <th>Case ID</th>
+        <th>Payment</th>
+        <th>Failure</th>
+        <th>Strategy</th>
+        <th>Outcome</th>
+        <th>Recovered</th>
+        <th>Time</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in cases %}
+      <tr>
+        <td><a href="/ui/cases/{{ row.case_id }}" class="case-link">{{ row.case_id }}</a></td>
+        <td class="num">{{ row.payment }}</td>
+        <td>{{ row.failure }}</td>
+        <td>{{ row.strategy }}</td>
+        <td>{{ row.outcome }}</td>
+        <td class="num">{{ row.recovered_inr }}</td>
+        <td class="num">{{ row.time }}</td>
+        <td>{{ status_badge(row.status) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

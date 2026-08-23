@@ -1,0 +1,78 @@
+{% extends "base_product.html" %}
+{% block title %}Overview — Recovery Agent{% endblock %}
+{% set nav_active = 'overview' %}
+{% block content %}
+<header class="p-page-header">
+  <h1 class="p-page-title">Revenue Recovery</h1>
+  <p class="p-page-sub">Monitor failed payments, recovery performance and AI decisions.</p>
+</header>
+
+<div class="p-kpi-row">
+  {% for kpi in mock.kpis %}
+  <div class="p-metric">
+    <p class="p-metric-label">{{ kpi.label }}</p>
+    <p class="p-metric-value">{{ kpi.value }}</p>
+    <p class="p-metric-delta">{{ kpi.delta }}</p>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="p-grid-2col p-stack">
+  <section class="p-card">
+    <div class="p-card-head">
+      <h2 class="p-card-title">Recovery performance</h2>
+      <span class="p-legend"><span class="ai">AI Recovery</span><span class="baseline">Baseline</span></span>
+    </div>
+    <div class="p-card-body">
+      <div class="p-chart-row">
+        {% for i in range(mock.performance_chart.labels | length) %}
+        <div class="p-chart-bar-group">
+          <div class="p-chart-bars">
+            <div class="p-chart-bar p-chart-bar--ai" style="height: {{ mock.performance_chart.ai[i] }}%"></div>
+            <div class="p-chart-bar p-chart-bar--baseline" style="height: {{ mock.performance_chart.baseline[i] }}%"></div>
+          </div>
+          <span class="p-chart-label">{{ mock.performance_chart.labels[i] }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <section class="p-card">
+    <div class="p-card-head"><h2 class="p-card-title">Recovery outcomes</h2></div>
+    <div class="p-card-body">
+      {% for o in mock.outcomes %}
+      <div class="p-bar-h-row">
+        <div class="p-bar-h-head"><span>{{ o.label }}</span><span>{{ o.count }} · {{ o.pct }}%</span></div>
+        <div class="p-bar-h-track"><div class="p-bar-h-fill p-bar-h-fill--{% if o.tone == 'success' %}success{% elif o.tone == 'danger' %}danger{% elif o.tone == 'warning' %}warn{% else %}{% endif %}" style="width: {{ o.pct }}%"></div></div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+
+<div class="p-grid-2col p-mt-1">
+  <section class="p-card">
+    <div class="p-card-head"><h2 class="p-card-title">Top failure reasons</h2></div>
+    <div class="p-card-body">
+      {% for f in mock.failure_reasons %}
+      <div class="p-bar-h-row">
+        <div class="p-bar-h-head"><span>{{ f.reason }}</span><span>{{ f.pct }}%</span></div>
+        <div class="p-bar-h-track"><div class="p-bar-h-fill" style="width: {{ f.pct }}%"></div></div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="p-card">
+    <div class="p-card-head">
+      <h2 class="p-card-title">Recent recovery cases</h2>
+      <a href="/ui/cases" class="p-btn p-btn--ghost">View all</a>
+    </div>
+    <div class="p-card-body" style="padding:0">
+      {% set cases = mock.recent_cases %}
+      {% include "components/product/_cases_table.html" %}
+    </div>
+  </section>
+</div>
+{% endblock %}

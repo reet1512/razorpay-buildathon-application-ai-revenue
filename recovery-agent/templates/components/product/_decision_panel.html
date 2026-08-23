@@ -1,0 +1,37 @@
+<div class="p-decision">
+  <div class="p-card-head">
+    <h3 class="p-card-title">Recovery decision</h3>
+    <span class="p-badge p-badge--info">AI-assisted</span>
+  </div>
+  <div class="p-card-body">
+    <p class="p-text-muted p-mb-0">Recommended strategy</p>
+    <p class="p-decision-action">{{ decision.strategy }}</p>
+    <dl class="p-stat-grid">
+      <div class="p-stat">
+        <dt>Confidence</dt>
+        <dd>{{ decision.confidence_pct }}%</dd>
+      </div>
+      <div class="p-stat">
+        <dt>Historical support</dt>
+        <dd>{{ decision.comparable_cases }} cases</dd>
+      </div>
+      <div class="p-stat">
+        <dt>Expected net recovery</dt>
+        <dd>₹{{ decision.expected_net_inr }}</dd>
+      </div>
+    </dl>
+    <div class="p-page-actions">
+      <button type="button" class="p-btn">View evidence</button>
+      <button type="button" class="p-btn">Compare strategies</button>
+    </div>
+    <hr class="p-divider" />
+    <p class="p-text-muted p-mb-0">Safety · {{ safety_checks | selectattr('status', 'equalto', 'passed') | list | length }} / {{ safety_checks | length }} passed</p>
+    <ul class="p-safety-list">
+      {% for check in safety_checks %}
+      <li class="{{ check.status }}">{% if check.status == 'passed' %}✓{% else %}✕{% endif %} {{ check.label }}</li>
+      {% endfor %}
+    </ul>
+    <button type="button" class="p-btn p-btn--primary p-mt-1" style="width:100%">Approve recovery</button>
+    <p class="p-text-muted" style="margin-top:0.65rem;font-size:0.75rem">Policy gates remain authoritative — approval does not execute payment.</p>
+  </div>
+</div>

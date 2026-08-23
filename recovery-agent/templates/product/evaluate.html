@@ -1,0 +1,90 @@
+{% extends "base_product.html" %}
+{% block title %}Evaluate — Recovery Agent{% endblock %}
+{% set nav_active = 'evaluate' %}
+{% block content %}
+<header class="p-page-header">
+  <nav class="p-breadcrumb"><a href="/ui">Overview</a> / Evaluate</nav>
+  <h1 class="p-page-title">Evaluate</h1>
+  <p class="p-page-sub">Does AI recovery beat the baseline?</p>
+  <div class="p-page-actions">
+    <form method="post" action="/ui/batch/run" id="batch-run-form" style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
+      <label>Seed <input type="number" name="seed" value="{{ eval_ui.run.seed if eval_ui.has_run and eval_ui.run else 42 }}" style="width:5rem;padding:0.35rem" /></label>
+      <label>N <input type="number" name="n" value="{{ eval_ui.run.n if eval_ui.has_run and eval_ui.run else 200 }}" min="10" max="1000" style="width:5rem;padding:0.35rem" /></label>
+      <button type="submit" class="p-btn p-btn--primary">Run evaluation</button>
+    </form>
+    <a href="/ui/batch/distribution" class="p-btn">Multi-seed distribution</a>
+  </div>
+</header>
+
+<section class="headline-compare" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1.25rem">
+  <div class="p-metric">
+    <p class="p-metric-label">Our recovery</p>
+    <p class="p-metric-value">₹{{ "{:,.0f}".format(eval_ui.ours_inr) }}</p>
+  </div>
+  <div class="p-metric">
+    <p class="p-metric-label">Baseline</p>
+    <p class="p-metric-value">₹{{ "{:,.0f}".format(eval_ui.baseline_inr) }}</p>
+  </div>
+  <div class="p-metric" style="border-color:#BBF7D0;background:#F0FDF4">
+    <p class="p-metric-label">Net advantage</p>
+    <p class="p-metric-value" style="color:var(--p-success)">+₹{{ "{:,.0f}".format(eval_ui.advantage_inr) }}</p>
+  </div>
+</section>
+
+<div class="p-grid-2col">
+  <section class="p-card">
+    <div class="p-card-head"><h2 class="p-card-title">Recovery rate comparison</h2></div>
+    <div class="p-card-body">
+      <div class="p-bar-h-row">
+        <div class="p-bar-h-head"><span>AI Recovery</span><span>{{ eval_ui.recovery_rate_ours }}%</span></div>
+        <div class="p-bar-h-track"><div class="p-bar-h-fill" style="width: {{ eval_ui.recovery_rate_ours }}%"></div></div>
+      </div>
+      <div class="p-bar-h-row">
+        <div class="p-bar-h-head"><span>Baseline</span><span>{{ eval_ui.recovery_rate_baseline }}%</span></div>
+        <div class="p-bar-h-track"><div class="p-bar-h-fill" style="width: {{ eval_ui.recovery_rate_baseline }}%;background:#94A3B8"></div></div>
+      </div>
+    </div>
+  </section>
+  <section class="p-card">
+    <div class="p-card-head"><h2 class="p-card-title">Efficiency</h2></div>
+    <div class="p-card-body">
+      <dl class="p-stat-grid">
+        <div class="p-stat"><dt>Cost / ₹ recovered</dt><dd>{{ eval_ui.cost_per_rupee_ours }} vs {{ eval_ui.cost_per_rupee_baseline }}</dd></div>
+        <div class="p-stat"><dt>Wasted attempts</dt><dd>{{ eval_ui.wasted_ours }} vs {{ eval_ui.wasted_baseline }}</dd></div>
+        <div class="p-stat"><dt>Gate blocks</dt><dd>{{ eval_ui.gate_blocks_ours }} vs {{ eval_ui.gate_blocks_baseline }}</dd></div>
+      </dl>
+    </div>
+  </section>
+</div>
+
+<section class="p-card p-mt-1">
+  <div class="p-card-head"><h2 class="p-card-title">Evaluation run history</h2></div>
+  <div class="p-card-body" style="padding:0">
+    <div class="p-table-wrap">
+      <table class="p-table">
+        <thead><tr><th>Run ID</th><th>Seed</th><th>N</th><th>Advantage</th><th>Date</th></tr></thead>
+        <tbody>
+          {% for r in eval_ui.run_history %}
+          <tr>
+            <td><a href="/ui/batch?run={{ r.run_id }}" class="case-link">{{ r.run_id }}</a></td>
+            <td>{{ r.seed }}</td>
+            <td>{{ r.n }}</td>
+            <td class="num">{{ r.advantage }}</td>
+            <td>{{ r.date }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+{% if eval_ui.has_run and eval_ui.by_label %}
+<details class="p-card p-mt-1">
+  <summary class="p-card-head" style="cursor:pointer"><h2 class="p-card-title">Live evaluation details</h2></summary>
+  <div class="p-card-body">
+    <p class="p-text-muted">Seed {{ eval_ui.run.seed }} · n={{ eval_ui.run.n }} · connected to eval engine</p>
+  </div>
+</details>
+{% endif %}
+{% endblock %}

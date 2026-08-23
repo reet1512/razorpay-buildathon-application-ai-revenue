@@ -30,6 +30,16 @@ from ledger import reader
 from ledger.service import get_case_trail
 from ai.client import LLMClient
 from api.ui_helpers import build_case_view, platform_metrics, recover_demo_context
+from api.ui_mock import (
+    api_docs_context,
+    case_detail_mock,
+    cases_list_context,
+    evaluate_ui_context,
+    historical_page_context,
+    overview_context,
+    recover_workspace_context,
+    strategies_page_context,
+)
 
 # Demo picker labels (same keys as taxonomy / batch mix)
 _FAILURE_OPTIONS = [
@@ -136,34 +146,88 @@ def _demo_context(
 @router.get("/", response_class=HTMLResponse)
 @router.get("/ui", response_class=HTMLResponse)
 def proof_home(request: Request) -> HTMLResponse:
-    """Guided demo landing — Evaluate · Recover · Prove."""
+    """Operations overview dashboard."""
     store = get_store()
     run = store.latest()
-    session = SessionLocal()
-    try:
-        live_case_id, live_plink = _latest_live_plink(session)
-    finally:
-        session.close()
+    by_label = _metrics_by_label(run) if run else {}
+    platform = platform_metrics(run, by_label)
+    mock = overview_context()
+    if platform.get("has_eval_run") and platform.get("net_recovered_inr"):
+        mock["kpis"][0]["value"] = f"₹{platform['net_recovered_inr'] / 1000:,.1f}K"
+    if platform.get("recovery_rate_pct") is not None:
+        mock["kpis"][1]["value"] = f"{platform['recovery_rate_pct']}%"
     return templates.TemplateResponse(
         request,
-        "proof.html",
-        _demo_context(run=run, live_case_id=live_case_id, live_plink=live_plink),
+        "product/overview.html",
+        {"nav_active": "overview", "mock": mock, "platform": platform},
     )
 
 
 @router.get("/ui/evaluate", response_class=HTMLResponse)
 def evaluate_page(request: Request) -> HTMLResponse:
-    """Alias for batch evaluation (judge-friendly name)."""
-    return batch_page(request)
+    """Evaluation — AI vs baseline."""
+    store = get_store()
+    run_id = request.query_params.get("run")
+    run = store.get(run_id) if run_id else store.latest()
+    if run is None and run_id:
+        run = store.latest()
+    by_label = _metrics_by_label(run) if run else {}
+    eval_ui = evaluate_ui_context(run, by_label)
+    return templates.TemplateResponse(
+        request,
+        "product/evaluate.html",
+        {
+            "nav_active": "evaluate",
+            "eval_ui": eval_ui,
+            "run": run,
+            "by_label": by_label,
+        },
+    )
 
 
 @router.get("/ui/recover", response_class=HTMLResponse)
 def recover_page(request: Request) -> HTMLResponse:
-    """Recover a failed payment — hero demo."""
+    """Recover a failed payment — core product workspace."""
+    ctx = _demo_context()
+    ctx["nav_active"] = "recover"
+    ctx["workspace"] = recover_workspace_context()
+    return templates.TemplateResponse(request, "product/recover.html", ctx)
+
+
+@router.get("/ui/cases", response_class=HTMLResponse)
+def cases_list_page(request: Request) -> HTMLResponse:
+    """All recovery cases — mock list for Phase 1 UI."""
     return templates.TemplateResponse(
         request,
-        "recover.html",
-        _demo_context(),
+        "product/cases.html",
+        {"nav_active": "cases", "sidebar": True, "mock": cases_list_context()},
+    )
+
+
+@router.get("/ui/intelligence/strategies", response_class=HTMLResponse)
+def intelligence_strategies_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "product/strategies.html",
+        {"nav_active": "intelligence", "sidebar": True, "mock": strategies_page_context()},
+    )
+
+
+@router.get("/ui/intelligence/historical", response_class=HTMLResponse)
+def intelligence_historical_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "product/historical.html",
+        {"nav_active": "intelligence", "sidebar": True, "mock": historical_page_context()},
+    )
+
+
+@router.get("/ui/api", response_class=HTMLResponse)
+def api_docs_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "product/api.html",
+        {"nav_active": "api", "mock": api_docs_context()},
     )
 
 
@@ -176,24 +240,16 @@ def live_test_page(request: Request) -> HTMLResponse:
     finally:
         session.close()
     ctx = _demo_context(live_case_id=live_case_id, live_plink=live_plink)
-    return templates.TemplateResponse(request, "live_test.html", ctx)
+    ctx["nav_active"] = "live_test"
+    return templates.TemplateResponse(request, "product/live_test.html", ctx)
 
 
 @router.get("/ui/batch", response_class=HTMLResponse)
 def batch_page(request: Request) -> HTMLResponse:
-    store = get_store()
+    """Legacy alias — redirects to Evaluate."""
     run_id = request.query_params.get("run")
-    run = store.get(run_id) if run_id else store.latest()
-    if run is None and run_id:
-        run = store.latest()
-    break_even = None
-    if run:
-        break_even = solve_break_even(seed=run.seed, n=run.n)
-    return templates.TemplateResponse(
-        request,
-        "batch.html",
-        _batch_context(run, break_even=break_even),
-    )
+    url = f"/ui/evaluate?run={run_id}" if run_id else "/ui/evaluate"
+    return RedirectResponse(url=url, status_code=303)
 
 
 @router.post("/ui/batch/run")
@@ -208,7 +264,7 @@ async def batch_run(request: Request) -> RedirectResponse:
         labels=["b2", "ours"],
         cost_overrides=overrides or None,
     )
-    return RedirectResponse(url=f"/ui/batch?run={record.run_id}", status_code=303)
+    return RedirectResponse(url=f"/ui/evaluate?run={record.run_id}", status_code=303)
 
 
 @router.get("/ui/batch/distribution", response_class=HTMLResponse)
@@ -604,20 +660,52 @@ def case_page(request: Request, case_id: str) -> HTMLResponse:
             if not missing and story
             else None
         )
+        mock = case_detail_mock(case_id)
+        st = case.status.value if case and hasattr(case.status, "value") else (str(case.status) if case else "pending")
+        if missing:
+            return templates.TemplateResponse(
+                request,
+                "product/case_detail.html",
+                {
+                    "nav_active": "cases",
+                    "case_id": case_id,
+                    "display_id": case_id,
+                    "display_status": "pending",
+                    "display_payment": mock["payment"],
+                    "mock": mock,
+                    "case_view": None,
+                    "ledger": [],
+                    "missing": True,
+                },
+            )
+        display_payment = (
+            {
+                "amount_inr": case_view["payment"]["amount_inr"],
+                "failure": case_view["payment"]["failure_label"],
+                "failure_label": case_view["payment"]["failure_label"],
+            }
+            if case_view
+            else mock["payment"]
+        )
         return templates.TemplateResponse(
             request,
-            "case.html",
+            "product/case_detail.html",
             {
+                "nav_active": "cases",
                 "case": case,
                 "ledger": ledger,
                 "missing": missing,
                 "case_id": case_id,
+                "display_id": case_id,
+                "display_status": st,
+                "display_payment": display_payment,
                 "provenance": provenance,
                 "story": story,
                 "webhook_paid": webhook_paid,
                 "audit_log": audit_log,
                 "gate_block": gate_block,
                 "case_view": case_view,
+                "mock": mock,
             },
         )
     finally:

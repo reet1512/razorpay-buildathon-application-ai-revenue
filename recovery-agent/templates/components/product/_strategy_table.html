@@ -1,0 +1,28 @@
+<div class="p-table-wrap">
+  <table class="p-table">
+    <thead>
+      <tr>
+        <th>Strategy</th>
+        <th>Attempts</th>
+        <th>Recovered</th>
+        <th>Success rate</th>
+        <th>Avg time</th>
+        <th>Expected net</th>
+        {% if show_cost %}<th>Cost</th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in strategies %}
+      <tr{% if row.selected or row.is_selected %} class="is-selected"{% endif %}>
+        <td>{{ row.label }}{% if row.selected or row.is_selected %} <span class="p-badge p-badge--info">Recommended</span>{% endif %}</td>
+        <td class="num">{{ row.attempts }}</td>
+        <td class="num">{{ row.recovered if row.recovered is defined else row.successful }}</td>
+        <td class="num">{% if row.success_rate is not none %}{% if row.success_rate <= 1 %}{{ (row.success_rate * 100) | round(1) }}{% else %}{{ row.success_rate }}{% endif %}%{% else %}—{% endif %}</td>
+        <td class="num">{% if row.avg_time_h is defined %}{{ row.avg_time_h }}h{% elif row.avg_recovery_time_hours is not none %}{{ row.avg_recovery_time_hours }}h{% else %}—{% endif %}</td>
+        <td class="num">{% if row.expected_net is defined %}₹{{ row.expected_net }}{% elif row.expected_net_inr is not none %}₹{{ row.expected_net_inr }}{% else %}—{% endif %}</td>
+        {% if show_cost %}<td class="num">{% if row.cost_inr is defined %}₹{{ row.cost_inr }}{% else %}—{% endif %}</td>{% endif %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

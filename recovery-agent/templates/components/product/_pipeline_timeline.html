@@ -1,0 +1,16 @@
+<div class="p-timeline" role="list">
+  {% for step in pipeline %}
+  {% set state = 'is-done' if step.status == 'done' else ('is-waiting' if step.status == 'waiting' else ('is-blocked' if step.status == 'blocked' else 'is-pending')) %}
+  <div class="p-tl-step {{ state }} is-clickable" role="listitem">
+    <div class="p-tl-dot" aria-hidden="true">{% if step.status == 'done' %}✓{% elif step.status == 'waiting' %}→{% else %}{{ step.num }}{% endif %}</div>
+    <div>
+      <div class="p-tl-head">
+        <p class="p-tl-title">{{ step.num }} · {{ step.title }}</p>
+        <span class="p-tl-meta">{% if step.time != '—' %}{{ step.time }}{% endif %}{% if step.duration_ms %} · {{ step.duration_ms }} ms{% endif %}</span>
+      </div>
+      <p class="p-tl-summary">{{ step.summary }}</p>
+      {% if step.detail %}<p class="p-tl-detail">{{ step.detail }}</p>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>

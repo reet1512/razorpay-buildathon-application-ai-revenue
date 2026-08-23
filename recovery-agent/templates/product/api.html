@@ -1,0 +1,56 @@
+{% extends "base_product.html" %}
+{% block title %}API — Recovery Agent{% endblock %}
+{% set nav_active = 'api' %}
+{% block content %}
+<header class="p-page-header">
+  <nav class="p-breadcrumb"><a href="/ui">Overview</a> / API</nav>
+  <h1 class="p-page-title">API reference</h1>
+  <p class="p-page-sub">Developer documentation for the Recovery Agent platform.</p>
+  <div class="p-page-actions">
+    <a href="/docs" class="p-btn p-btn--primary" target="_blank" rel="noopener">Open Swagger UI</a>
+  </div>
+</header>
+
+<section class="p-card">
+  <div class="p-card-head"><h2 class="p-card-title">Authentication</h2></div>
+  <div class="p-card-body">
+    <p class="p-text-muted">Local demo mode — no API key required. Production deployments use workspace-scoped credentials.</p>
+  </div>
+</section>
+
+{% for ep in mock.endpoints %}
+<article class="p-endpoint">
+  <div class="p-endpoint-head">
+    <span class="p-method{% if ep.method == 'POST' %} p-method--post{% endif %}">{{ ep.method }}</span>
+    <span class="p-endpoint-path">{{ ep.path }}</span>
+  </div>
+  <div class="p-card-body">
+    <p><strong>{{ ep.title }}</strong> — {{ ep.description }}</p>
+    {% if ep.method == 'POST' and ep.path == '/agent/run' %}
+    <pre class="p-code">{
+  "case_id": "case_abc123",
+  "raw_error_reason": "insufficient_funds",
+  "amount_paise": 49900
+}</pre>
+    {% elif ep.path == '/cases/{case_id}' %}
+    <pre class="p-code">{
+  "case_id": "case_abc123",
+  "status": "open",
+  "ledger": [...]
+}</pre>
+    {% endif %}
+    <p class="p-text-muted">Status: 200 OK · 404 Not Found · 422 Validation Error</p>
+  </div>
+</article>
+{% endfor %}
+
+<section class="p-card p-mt-1">
+  <div class="p-card-head"><h2 class="p-card-title">Webhooks</h2></div>
+  <div class="p-card-body">
+    <p class="p-text-muted">Ingest Razorpay <code>payment.failed</code> and <code>payment_link.paid</code> events at <code>POST /webhooks/razorpay</code>.</p>
+    <pre class="p-code">curl -X POST http://localhost:8000/webhooks/razorpay \
+  -H "Content-Type: application/json" \
+  -d '{"event":"payment.failed", ...}'</pre>
+  </div>
+</section>
+{% endblock %}

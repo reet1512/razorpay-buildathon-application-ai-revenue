@@ -1,0 +1,77 @@
+{% extends "base_product.html" %}
+{% block title %}Live Test — Recovery Agent{% endblock %}
+{% set nav_active = 'live_test' %}
+{% block content %}
+<header class="p-page-header">
+  <nav class="p-breadcrumb"><a href="/ui">Overview</a> / Live Test</nav>
+  <h1 class="p-page-title">Live payment test</h1>
+  <p class="p-page-sub">Run the recovery loop against a real Razorpay test payment.</p>
+  <span class="p-env-badge">TEST</span>
+</header>
+
+<section class="p-card">
+  <div class="p-card-head"><h2 class="p-card-title">Test pipeline</h2></div>
+  <div class="p-card-body">
+    <div class="p-flow" aria-label="Live test flow">
+      <span class="p-flow-step is-done">Create payment</span>
+      <span class="p-flow-arrow">→</span>
+      <span class="p-flow-step">Payment</span>
+      <span class="p-flow-arrow">→</span>
+      <span class="p-flow-step">Webhook</span>
+      <span class="p-flow-arrow">→</span>
+      <span class="p-flow-step">Recovery Agent</span>
+      <span class="p-flow-arrow">→</span>
+      <span class="p-flow-step">Recovery</span>
+      <span class="p-flow-arrow">→</span>
+      <span class="p-flow-step">Outcome</span>
+    </div>
+
+    <div class="p-form-row">
+      <label for="demo-reason">Failure reason for test case</label>
+      <select id="demo-reason" aria-label="Failure reason">
+        {% for value, label in failure_options %}
+        <option value="{{ value }}" {% if value == default_reason %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <form method="post" action="/ui/demo/ai-case" class="ai-demo-form p-page-actions">
+      <input type="hidden" name="raw_error_reason" class="reason-field" value="{{ default_reason }}" />
+      <input type="hidden" name="create_payment_link" value="1" />
+      <button type="submit" class="p-btn p-btn--primary">Create test payment</button>
+    </form>
+
+    {% if live_plink and live_case_id %}
+    <div class="p-banner p-banner--success p-mt-1">
+      <p class="p-mb-0"><strong>✓ Payment link created</strong></p>
+      <p class="p-text-muted"><code>{{ live_plink }}</code></p>
+      <a href="/ui/cases/{{ live_case_id }}" class="p-btn" style="margin-top:0.5rem">View case</a>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<details class="p-card p-mt-1">
+  <summary class="p-card-head" style="cursor:pointer"><h2 class="p-card-title">Technical setup</h2></summary>
+  <div class="p-card-body">
+    <p class="p-text-muted">Creates a Razorpay test-mode Payment Link. Complete payment in the Razorpay dashboard, or POST a signed <code>payment_link.paid</code> webhook to <code>/webhooks/razorpay</code>.</p>
+    <pre class="p-code">POST /webhooks/razorpay
+Content-Type: application/json
+X-Razorpay-Signature: ...
+
+{ "event": "payment_link.paid", ... }</pre>
+  </div>
+</details>
+
+<script>
+(function () {
+  var sel = document.getElementById("demo-reason");
+  if (!sel) return;
+  function sync() {
+    document.querySelectorAll(".reason-field").forEach(function (el) { el.value = sel.value; });
+  }
+  sel.addEventListener("change", sync);
+  sync();
+})();
+</script>
+{% endblock %}

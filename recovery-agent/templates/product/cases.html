@@ -1,0 +1,33 @@
+{% extends "base_product.html" %}
+{% block title %}Cases — Recovery Agent{% endblock %}
+{% set nav_active = 'cases' %}
+{% set sidebar = true %}
+{% block sidebar %}
+<p class="p-sidebar-label">Cases</p>
+<a href="/ui/cases" class="is-active">All payments</a>
+<a href="/ui/cases?filter=failed">Failed payments</a>
+<a href="/ui/cases?filter=recoverable">Recoverable</a>
+<a href="/ui/cases?filter=recovered">Recovered</a>
+<a href="/ui/cases?filter=blocked">Blocked</a>
+{% endblock %}
+{% block content %}
+<header class="p-page-header">
+  <nav class="p-breadcrumb"><a href="/ui">Overview</a> / Cases</nav>
+  <h1 class="p-page-title">Recovery cases</h1>
+  <p class="p-page-sub">All failed payment investigations and recovery outcomes.</p>
+</header>
+
+<div class="p-filter-bar">
+  {% for f in mock.filters %}
+  <button type="button" class="p-btn{% if loop.first %} p-btn--primary{% endif %}">{{ f }}</button>
+  {% endfor %}
+  <input type="search" placeholder="Filter by case ID…" aria-label="Filter cases" style="margin-left:auto" />
+</div>
+
+<section class="p-card">
+  <div class="p-card-body" style="padding:0">
+    {% set cases = mock.cases %}
+    {% include "components/product/_cases_table.html" %}
+  </div>
+</section>
+{% endblock %}
