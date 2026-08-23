@@ -1,0 +1,77 @@
+{% extends "base_product.html" %}
+{% block title %}Intelligence — Recovery Agent{% endblock %}
+{% set nav_active = 'intelligence' %}
+{% set sidebar = true %}
+{% set intel_active = 'overview' %}
+{% block sidebar %}
+{% include "components/product/_intelligence_sidebar.html" %}
+{% endblock %}
+{% block content %}
+<header class="p-page-header">
+  <nav class="p-breadcrumb"><a href="/ui">Overview</a> / Intelligence</nav>
+  <h1 class="p-page-title">Intelligence</h1>
+  <p class="p-page-sub">Why are payments failing?</p>
+</header>
+
+<div class="p-kpi-row">
+  {% for s in mock.stats %}
+  <div class="p-metric">
+    <p class="p-metric-label">{{ s.label }}</p>
+    <p class="p-metric-value">{{ s.value }}</p>
+  </div>
+  {% endfor %}
+</div>
+
+<section class="p-card p-mt-1">
+  <div class="p-card-head"><h2 class="p-card-title">Failure reasons</h2></div>
+  <div class="p-card-body">
+    {% for f in mock.failure_reasons %}
+    <div class="p-bar-h-row">
+      <div class="p-bar-h-head"><span>{{ f.reason }}</span><span>{{ f.pct }}%</span></div>
+      <div class="p-bar-h-track"><div class="p-bar-h-fill" style="width: {{ f.pct }}%"></div></div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<div class="p-grid-2col p-mt-1">
+  <section class="p-card">
+    <div class="p-card-head"><h2 class="p-card-title">Payment method performance</h2></div>
+    <div class="p-card-body">
+      {% for m in mock.method_performance %}
+      <div class="p-failure-row" style="padding:0.5rem 0;border-bottom:1px solid var(--p-border)">
+        <span>{{ m.method }}</span>
+        <span>{{ m.recovery_rate }}% recovery</span>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  <section class="p-card">
+    <div class="p-card-head"><h2 class="p-card-title">AI insights</h2></div>
+    <div class="p-card-body">
+      <ul style="margin:0;padding-left:1.1rem;color:var(--p-muted);font-size:0.875rem;line-height:1.7">
+        {% for insight in mock.insights %}
+        <li>{{ insight }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </section>
+</div>
+
+<section class="p-card p-mt-1">
+  <div class="p-card-head">
+    <h2 class="p-card-title">Recovery opportunities</h2>
+    <a href="/ui/intelligence/strategies" class="p-btn p-btn--ghost">Compare strategies</a>
+  </div>
+  <div class="p-card-body">
+    <div class="p-failure-compact">
+      {% for o in mock.opportunities %}
+      <div class="p-failure-row">
+        <span>{{ o.label }}</span>
+        <span>{{ o.value }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -342,6 +342,9 @@ a:hover { color: var(--p-blue-dark); }
 
 .p-table a.case-link { font-weight: 500; color: var(--p-blue); }
 
+.p-table--compact th,
+.p-table--compact td { padding: 0.55rem 0.85rem; }
+
 /* ── Tabs ── */
 .p-tabs {
   display: flex;

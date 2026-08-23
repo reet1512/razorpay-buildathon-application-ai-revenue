@@ -36,7 +36,9 @@ from api.ui_mock import (
     cases_list_context,
     evaluate_ui_context,
     historical_page_context,
+    intelligence_hub_context,
     overview_context,
+    recover_page_context,
     recover_workspace_context,
     strategies_page_context,
 )
@@ -144,8 +146,33 @@ def _demo_context(
 
 
 @router.get("/", response_class=HTMLResponse)
+def landing_page(request: Request) -> HTMLResponse:
+    """Public marketing landing page."""
+    return templates.TemplateResponse(request, "landing.html", {})
+
+
+@router.get("/sign-in", response_class=HTMLResponse)
+def sign_in_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "sign_in.html", {})
+
+
+@router.post("/sign-in")
+async def sign_in_submit(request: Request) -> RedirectResponse:
+    """Demo sign-in — sets a session cookie and enters the app."""
+    response = RedirectResponse(url="/ui", status_code=303)
+    response.set_cookie(key="ra_session", value="demo", httponly=True, max_age=86400 * 7)
+    return response
+
+
+@router.get("/sign-out")
+def sign_out() -> RedirectResponse:
+    response = RedirectResponse(url="/", status_code=303)
+    response.delete_cookie(key="ra_session")
+    return response
+
+
 @router.get("/ui", response_class=HTMLResponse)
-def proof_home(request: Request) -> HTMLResponse:
+def app_overview(request: Request) -> HTMLResponse:
     """Operations overview dashboard."""
     store = get_store()
     run = store.latest()
@@ -187,11 +214,26 @@ def evaluate_page(request: Request) -> HTMLResponse:
 
 @router.get("/ui/recover", response_class=HTMLResponse)
 def recover_page(request: Request) -> HTMLResponse:
-    """Recover a failed payment — core product workspace."""
+    """Recover a failed payment — operational queue + live pipeline."""
     ctx = _demo_context()
     ctx["nav_active"] = "recover"
     ctx["workspace"] = recover_workspace_context()
+    ctx["mock"] = recover_page_context()
     return templates.TemplateResponse(request, "product/recover.html", ctx)
+
+
+@router.get("/ui/intelligence", response_class=HTMLResponse)
+def intelligence_hub_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "product/intelligence.html",
+        {
+            "nav_active": "intelligence",
+            "sidebar": True,
+            "intel_active": "overview",
+            "mock": intelligence_hub_context(),
+        },
+    )
 
 
 @router.get("/ui/cases", response_class=HTMLResponse)
@@ -209,7 +251,12 @@ def intelligence_strategies_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
         "product/strategies.html",
-        {"nav_active": "intelligence", "sidebar": True, "mock": strategies_page_context()},
+        {
+            "nav_active": "intelligence",
+            "sidebar": True,
+            "intel_active": "strategies",
+            "mock": strategies_page_context(),
+        },
     )
 
 
@@ -218,7 +265,12 @@ def intelligence_historical_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
         "product/historical.html",
-        {"nav_active": "intelligence", "sidebar": True, "mock": historical_page_context()},
+        {
+            "nav_active": "intelligence",
+            "sidebar": True,
+            "intel_active": "historical",
+            "mock": historical_page_context(),
+        },
     )
 
 

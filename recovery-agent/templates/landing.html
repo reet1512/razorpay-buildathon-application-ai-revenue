@@ -1,0 +1,121 @@
+{% extends "base_landing.html" %}
+{% block title %}Recovery Agent — AI Revenue Recovery{% endblock %}
+{% block content %}
+<section class="l-section l-hero">
+  <div class="l-hero-copy">
+    <h1>Recover more revenue from every failed payment.</h1>
+    <p>AI-powered payment recovery that understands why payments fail, chooses the right recovery strategy, and helps businesses turn failed transactions into recovered revenue.</p>
+    <div class="l-hero-actions">
+      <a href="/sign-in" class="p-btn p-btn--primary">Start recovering revenue</a>
+      <a href="/ui/live-test" class="p-btn">View demo</a>
+    </div>
+  </div>
+  <div class="l-preview" aria-hidden="true">
+    <div class="l-preview-bar">
+      <span class="l-preview-dot"></span><span class="l-preview-dot"></span><span class="l-preview-dot"></span>
+    </div>
+    <div class="l-preview-body">
+      <dl class="l-preview-kpis">
+        <div class="l-preview-kpi"><dt>Net recovered</dt><dd>₹60.6K</dd></div>
+        <div class="l-preview-kpi"><dt>Recovery rate</dt><dd>48.7%</dd></div>
+        <div class="l-preview-kpi"><dt>Payments analyzed</dt><dd>1,240</dd></div>
+        <div class="l-preview-kpi"><dt>Recovery success</dt><dd>72.3%</dd></div>
+      </dl>
+      <div class="l-preview-chart">
+        {% for h in [42, 48, 51, 55] %}
+        <div class="l-preview-bar-col">
+          <div class="l-preview-bar-fill" style="height: {{ h }}%"></div>
+          <span>W{{ loop.index }}</span>
+        </div>
+        {% endfor %}
+        {% for h in [38, 41, 43, 44] %}
+        <div class="l-preview-bar-col">
+          <div class="l-preview-bar-fill l-preview-bar-fill--muted" style="height: {{ h }}%"></div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="l-section l-section--muted l-section--tight" id="problem">
+  <div class="l-section-head">
+    <h2>Failed payments are lost revenue.</h2>
+    <p>Every declined transaction is money left on the table — unless you recover it intelligently.</p>
+  </div>
+  <div class="l-cards-3">
+    <article class="l-card">
+      <h3>Payment failures</h3>
+      <p>Insufficient funds, expired cards, and issuer errors silently erode revenue every day.</p>
+    </article>
+    <article class="l-card">
+      <h3>Failed retries</h3>
+      <p>Blind retries waste attempts, annoy customers, and still miss the optimal recovery window.</p>
+    </article>
+    <article class="l-card">
+      <h3>Revenue left unrecovered</h3>
+      <p>Without intelligence, teams cannot prioritize which failures are worth recovering and how.</p>
+    </article>
+  </div>
+</section>
+
+<section class="l-section l-section--tight" id="product">
+  <div class="l-section-head">
+    <h2>AI recovery engine</h2>
+    <p>From failure to recovered revenue in three steps.</p>
+  </div>
+  <div class="l-steps">
+    <article class="l-card">
+      <div class="l-step-num">1</div>
+      <h3>Understand</h3>
+      <p>AI analyzes the payment failure, method, and customer context to classify what went wrong.</p>
+    </article>
+    <article class="l-card">
+      <div class="l-step-num">2</div>
+      <h3>Decide</h3>
+      <p>Historical intelligence and economics determine the best recovery strategy for this payment.</p>
+    </article>
+    <article class="l-card">
+      <div class="l-step-num">3</div>
+      <h3>Recover</h3>
+      <p>The system executes or recommends the appropriate action — retry, link, or policy-safe hold.</p>
+    </article>
+  </div>
+</section>
+
+<section class="l-section l-section--muted l-section--tight">
+  <div class="l-intel-preview">
+    <div>
+      <h2 style="font-size:1.5rem;color:var(--p-navy);margin:0 0 0.75rem;letter-spacing:-0.02em">Recovery intelligence</h2>
+      <p style="color:var(--p-muted);margin:0;line-height:1.6">See recovery performance, failure patterns, and AI decisions in one operations console — built for revenue teams.</p>
+    </div>
+    <div class="l-intel-stats">
+      <div class="l-intel-stat"><span>Recovery rate</span><strong>48.7%</strong></div>
+      <div class="l-intel-stat"><span>Revenue recovered</span><strong>₹60.6K</strong></div>
+      <div class="l-intel-stat"><span>Top failure</span><strong>Insufficient funds</strong></div>
+      <div class="l-intel-stat"><span>AI recommendation</span><strong>Retry after 24h</strong></div>
+    </div>
+  </div>
+</section>
+
+<section class="l-section l-section--tight">
+  <div class="l-section-head">
+    <h2>Built for revenue teams</h2>
+  </div>
+  <div class="l-cap-grid">
+    <div class="l-cap">Automated recovery</div>
+    <div class="l-cap">AI decisioning</div>
+    <div class="l-cap">Failure intelligence</div>
+    <div class="l-cap">Recovery cases</div>
+    <div class="l-cap">Experiments</div>
+    <div class="l-cap">API access</div>
+  </div>
+</section>
+
+<section class="l-cta-band">
+  <h2>Stop losing revenue to failed payments.</h2>
+  <a href="/sign-in" class="p-btn p-btn--primary" style="background:#fff;color:var(--p-navy);border:none">Start recovering revenue</a>
+</section>
+
+<footer class="l-footer">Recovery Agent · AI revenue recovery for payment operations</footer>
+{% endblock %}

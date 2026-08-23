@@ -4,20 +4,37 @@
 {% block content %}
 <header class="p-page-header">
   <nav class="p-breadcrumb"><a href="/ui">Overview</a> / Recover</nav>
-  <h1 class="p-page-title">Recover payment</h1>
-  <p class="p-page-sub">Investigate a failed payment and determine the safest recovery strategy.</p>
+  <h1 class="p-page-title">Recover</h1>
+  <p class="p-page-sub">Take action on failed payments — review recommendations and recovery status.</p>
+  <div class="p-page-actions">
+    <form method="post" action="/ui/demo/ai-case" class="ai-demo-form" style="display:inline">
+      <input type="hidden" name="raw_error_reason" class="reason-field" value="{{ default_reason }}" />
+      <input type="hidden" name="amount_paise" value="49900" />
+      <button type="submit" class="p-btn p-btn--primary">Run new recovery</button>
+    </form>
+  </div>
 </header>
 
-{% if rag_enabled %}
-<div class="p-banner p-banner--info">Memory-assisted · Inherent{% if similar_cases %} · {{ similar_cases }} similar cases{% endif %}{% if retrieval_latency_label %} · {{ retrieval_latency_label }}{% endif %}</div>
-{% endif %}
-
-<section class="p-card p-mb-0">
+<section class="p-card">
   <div class="p-card-head">
-    <h2 class="p-card-title">Run recovery</h2>
-    <span class="p-text-muted">Connects to live backend</span>
+    <h2 class="p-card-title">Recovery queue</h2>
+    <span class="p-text-muted">{{ mock.queue | length }} payments need attention</span>
   </div>
+  <div class="p-card-body" style="padding:0">
+    {% set queue = mock.queue %}
+    {% include "components/product/_recover_queue_table.html" %}
+  </div>
+</section>
+
+<details class="p-card p-mt-1">
+  <summary class="p-card-head" style="cursor:pointer">
+    <h2 class="p-card-title">Run recovery pipeline</h2>
+    <span class="p-text-muted">Live backend · creates a new case</span>
+  </summary>
   <div class="p-card-body">
+    {% if rag_enabled %}
+    <div class="p-banner p-banner--info">Memory-assisted · Inherent{% if similar_cases %} · {{ similar_cases }} similar cases{% endif %}</div>
+    {% endif %}
     <div class="p-form-row">
       <label for="demo-reason">Failure reason</label>
       <select id="demo-reason" aria-label="Failure reason">
@@ -26,57 +43,33 @@
         {% endfor %}
       </select>
     </div>
-    <form method="post" action="/ui/demo/ai-case" class="ai-demo-form p-page-actions">
+    <form method="post" action="/ui/demo/ai-case" class="ai-demo-form">
       <input type="hidden" name="raw_error_reason" class="reason-field" value="{{ default_reason }}" />
       <input type="hidden" name="amount_paise" value="49900" />
       <button type="submit" class="p-btn p-btn--primary">Run recovery pipeline</button>
     </form>
-    <p class="p-text-muted">Runs classification → memory → evidence → AI → safety → case page.</p>
+    <p class="p-text-muted">Classification → memory → evidence → AI → safety → case page.</p>
   </div>
-</section>
+</details>
 
-<section class="p-card">
-  <div class="p-card-head"><h2 class="p-card-title">Payment</h2><span class="p-badge p-badge--info">Preview</span></div>
+<details class="p-card p-mt-1">
+  <summary class="p-card-head" style="cursor:pointer">
+    <h2 class="p-card-title">Pipeline preview</h2>
+  </summary>
   <div class="p-card-body">
-    <div class="p-payment-summary">
-      <p class="p-payment-amount">{{ workspace.payment.amount_inr }}</p>
-      <div><p class="p-field-label">Method</p><p class="p-field-value">{{ workspace.payment.method }}</p></div>
-      <div><p class="p-field-label">Failure</p><p class="p-field-value">{{ workspace.payment.failure }}</p></div>
-      <div><p class="p-field-label">Class</p><p class="p-field-value">{{ workspace.payment.class }}</p></div>
-      <div><p class="p-field-label">Payment ID</p><p class="p-field-value"><code>{{ workspace.payment.payment_id }}</code></p></div>
-      <div><p class="p-field-label">Created</p><p class="p-field-value">{{ workspace.payment.created }}</p></div>
-      <div><p class="p-field-label">Customer</p><p class="p-field-value">{{ workspace.payment.customer }}</p></div>
+    <div class="p-grid-2 p-grid-2--wide">
+      <div>
+        {% set pipeline = workspace.pipeline %}
+        {% include "components/product/_pipeline_timeline.html" %}
+      </div>
+      <div>
+        {% set decision = workspace.decision %}
+        {% set safety_checks = workspace.safety_checks %}
+        {% include "components/product/_decision_panel.html" %}
+      </div>
     </div>
   </div>
-</section>
-
-<div class="p-grid-2 p-grid-2--wide">
-  <section class="p-card">
-    <div class="p-card-head">
-      <h2 class="p-card-title">Recovery analysis</h2>
-      <span class="p-text-muted">Live recovery pipeline · mock preview</span>
-    </div>
-    <div class="p-card-body">
-      {% set pipeline = workspace.pipeline %}
-      {% include "components/product/_pipeline_timeline.html" %}
-    </div>
-  </section>
-
-  <div>
-    {% set decision = workspace.decision %}
-    {% set safety_checks = workspace.safety_checks %}
-    {% include "components/product/_decision_panel.html" %}
-  </div>
-</div>
-
-<section class="p-card p-mt-1">
-  <div class="p-card-head"><h2 class="p-card-title">Strategy comparison</h2></div>
-  <div class="p-card-body" style="padding:0">
-    {% set strategies = workspace.strategies_preview %}
-    {% set show_cost = false %}
-    {% include "components/product/_strategy_table.html" %}
-  </div>
-</section>
+</details>
 
 <script>
 (function () {

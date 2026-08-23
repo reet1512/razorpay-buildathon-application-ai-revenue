@@ -2,10 +2,9 @@
 {% block title %}Historical Intelligence — Recovery Agent{% endblock %}
 {% set nav_active = 'intelligence' %}
 {% set sidebar = true %}
+{% set intel_active = 'historical' %}
 {% block sidebar %}
-<p class="p-sidebar-label">Intelligence</p>
-<a href="/ui/intelligence/historical" class="is-active">Historical memory</a>
-<a href="/ui/intelligence/strategies">Strategies</a>
+{% include "components/product/_intelligence_sidebar.html" %}
 {% endblock %}
 {% block content %}
 <header class="p-page-header">

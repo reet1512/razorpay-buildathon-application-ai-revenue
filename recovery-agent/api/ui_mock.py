@@ -28,14 +28,6 @@ def overview_context() -> dict[str, Any]:
             {"label": "Failed", "count": 218, "pct": 17.6, "tone": "danger"},
             {"label": "Blocked by policy", "count": 106, "pct": 8.5, "tone": "warning"},
         ],
-        "failure_reasons": [
-            {"reason": "Insufficient funds", "count": 412, "pct": 33.2},
-            {"reason": "Issuer transient", "count": 286, "pct": 23.1},
-            {"reason": "Card expired", "count": 198, "pct": 16.0},
-            {"reason": "Authentication failure", "count": 156, "pct": 12.6},
-            {"reason": "Gateway timeout", "count": 98, "pct": 7.9},
-            {"reason": "Other", "count": 90, "pct": 7.2},
-        ],
         "recent_cases": [
             {
                 "case_id": "CASE-10482",
@@ -87,6 +79,92 @@ def overview_context() -> dict[str, Any]:
                 "time": "—",
                 "status": "blocked",
             },
+        ],
+        "failure_reasons_top": [
+            {"reason": "Insufficient funds", "count": 412, "pct": 33.2},
+            {"reason": "Issuer transient", "count": 286, "pct": 23.1},
+            {"reason": "Card expired", "count": 198, "pct": 16.0},
+            {"reason": "Authentication failure", "count": 156, "pct": 12.6},
+        ],
+    }
+
+
+def recover_page_context() -> dict[str, Any]:
+    return {
+        "queue": [
+            {
+                "payment_inr": "₹4,200",
+                "failure": "Card decline",
+                "recommendation": "Retry in 6 hours",
+                "recoverable_inr": "₹4,200",
+                "status": "pending",
+                "case_id": "CASE-10490",
+            },
+            {
+                "payment_inr": "₹2,100",
+                "failure": "Timeout",
+                "recommendation": "Retry now",
+                "recoverable_inr": "₹2,100",
+                "status": "recovered",
+                "case_id": "CASE-10479",
+            },
+            {
+                "payment_inr": "₹8,400",
+                "failure": "Insufficient funds",
+                "recommendation": "Request new method",
+                "recoverable_inr": "₹6,200",
+                "status": "pending",
+                "case_id": "CASE-10475",
+            },
+            {
+                "payment_inr": "₹499",
+                "failure": "Insufficient funds",
+                "recommendation": "Retry after 24h",
+                "recoverable_inr": "₹499",
+                "status": "recovered",
+                "case_id": "CASE-10482",
+            },
+            {
+                "payment_inr": "₹799",
+                "failure": "Card expired",
+                "recommendation": "Payment link",
+                "recoverable_inr": "₹799",
+                "status": "failed",
+                "case_id": "CASE-10471",
+            },
+        ],
+    }
+
+
+def intelligence_hub_context() -> dict[str, Any]:
+    return {
+        "stats": [
+            {"label": "Failure rate", "value": "12.4%"},
+            {"label": "Recoverable share", "value": "68%"},
+            {"label": "Avg recovery time", "value": "18.2h"},
+            {"label": "AI-assisted cases", "value": "842"},
+        ],
+        "failure_reasons": [
+            {"reason": "Insufficient funds", "pct": 33.2},
+            {"reason": "Issuer transient", "pct": 23.1},
+            {"reason": "Card expired", "pct": 16.0},
+            {"reason": "Authentication failure", "pct": 12.6},
+            {"reason": "Gateway timeout", "pct": 7.9},
+        ],
+        "method_performance": [
+            {"method": "Card", "recovery_rate": 51.2},
+            {"method": "UPI", "recovery_rate": 44.8},
+            {"method": "Netbanking", "recovery_rate": 39.1},
+        ],
+        "insights": [
+            "Insufficient funds recover best with 24–48h delayed retry — 62% success in comparable cases.",
+            "Issuer transient failures respond to immediate retry within 15 minutes.",
+            "Card expired cases convert at 71% when routed to payment link instead of retry.",
+        ],
+        "opportunities": [
+            {"label": "Retry-fixable failures (last 7d)", "value": "₹42.8K"},
+            {"label": "Pending recovery actions", "value": "312"},
+            {"label": "Blocked by policy (review)", "value": "106"},
         ],
     }
 

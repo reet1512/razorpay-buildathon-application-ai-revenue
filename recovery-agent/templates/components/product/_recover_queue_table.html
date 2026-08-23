@@ -1,0 +1,26 @@
+<div class="p-table-wrap">
+  <table class="p-table p-table--compact">
+    <thead>
+      <tr>
+        <th>Payment</th>
+        <th>Failure</th>
+        <th>AI recommendation</th>
+        <th>Recoverable</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in queue %}
+      <tr>
+        <td class="num">{{ row.payment_inr }}</td>
+        <td>{{ row.failure }}</td>
+        <td>{{ row.recommendation }}</td>
+        <td class="num">{{ row.recoverable_inr }}</td>
+        <td>{% from "components/product/_macros.html" import status_badge %}{{ status_badge(row.status) }}</td>
+        <td>{% if row.case_id %}<a href="/ui/cases/{{ row.case_id }}" class="p-btn p-btn--ghost">Open</a>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

@@ -4,14 +4,33 @@
 {% block content %}
 <header class="p-page-header">
   <nav class="p-breadcrumb"><a href="/ui">Overview</a> / API</nav>
-  <h1 class="p-page-title">API reference</h1>
-  <p class="p-page-sub">Developer documentation for the Recovery Agent platform.</p>
+  <h1 class="p-page-title">API</h1>
+  <p class="p-page-sub">Integrate Recovery Agent into your payment stack.</p>
   <div class="p-page-actions">
     <a href="/docs" class="p-btn p-btn--primary" target="_blank" rel="noopener">Open Swagger UI</a>
   </div>
 </header>
 
-<section class="p-card">
+<div class="p-kpi-row">
+  <div class="p-metric">
+    <p class="p-metric-label">API status</p>
+    <p class="p-metric-value" style="color:var(--p-success);font-size:1rem">Operational</p>
+  </div>
+  <div class="p-metric">
+    <p class="p-metric-label">Environment</p>
+    <p class="p-metric-value" style="font-size:1rem">Local demo</p>
+  </div>
+  <div class="p-metric">
+    <p class="p-metric-label">Authentication</p>
+    <p class="p-metric-value" style="font-size:1rem">Not required</p>
+  </div>
+  <div class="p-metric">
+    <p class="p-metric-label">Integration</p>
+    <p class="p-metric-value" style="font-size:1rem">Webhooks ready</p>
+  </div>
+</div>
+
+<section class="p-card p-mt-1">
   <div class="p-card-head"><h2 class="p-card-title">Authentication</h2></div>
   <div class="p-card-body">
     <p class="p-text-muted">Local demo mode — no API key required. Production deployments use workspace-scoped credentials.</p>

@@ -5,7 +5,7 @@
 <header class="p-page-header">
   <nav class="p-breadcrumb"><a href="/ui">Overview</a> / Evaluate</nav>
   <h1 class="p-page-title">Evaluate</h1>
-  <p class="p-page-sub">Does AI recovery beat the baseline?</p>
+  <p class="p-page-sub">Is AI actually improving recovery?</p>
   <div class="p-page-actions">
     <form method="post" action="/ui/batch/run" id="batch-run-form" style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
       <label>Seed <input type="number" name="seed" value="{{ eval_ui.run.seed if eval_ui.has_run and eval_ui.run else 42 }}" style="width:5rem;padding:0.35rem" /></label>
@@ -16,24 +16,32 @@
   </div>
 </header>
 
-<section class="headline-compare" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1.25rem">
-  <div class="p-metric">
-    <p class="p-metric-label">Our recovery</p>
-    <p class="p-metric-value">₹{{ "{:,.0f}".format(eval_ui.ours_inr) }}</p>
-  </div>
-  <div class="p-metric">
-    <p class="p-metric-label">Baseline</p>
-    <p class="p-metric-value">₹{{ "{:,.0f}".format(eval_ui.baseline_inr) }}</p>
-  </div>
-  <div class="p-metric" style="border-color:#BBF7D0;background:#F0FDF4">
-    <p class="p-metric-label">Net advantage</p>
-    <p class="p-metric-value" style="color:var(--p-success)">+₹{{ "{:,.0f}".format(eval_ui.advantage_inr) }}</p>
+<section class="p-card">
+  <div class="p-card-body">
+    <div class="p-kpi-row" style="margin-bottom:0">
+      <div class="p-metric">
+        <p class="p-metric-label">AI recovery</p>
+        <p class="p-metric-value">₹{{ "{:,.0f}".format(eval_ui.ours_inr) }}</p>
+      </div>
+      <div class="p-metric">
+        <p class="p-metric-label">Baseline</p>
+        <p class="p-metric-value">₹{{ "{:,.0f}".format(eval_ui.baseline_inr) }}</p>
+      </div>
+      <div class="p-metric" style="border-color:#BBF7D0;background:#F0FDF4">
+        <p class="p-metric-label">Recovery uplift</p>
+        <p class="p-metric-value" style="color:var(--p-success)">+₹{{ "{:,.0f}".format(eval_ui.advantage_inr) }}</p>
+      </div>
+      <div class="p-metric">
+        <p class="p-metric-label">Success rate (AI)</p>
+        <p class="p-metric-value">{{ eval_ui.recovery_rate_ours }}%</p>
+      </div>
+    </div>
   </div>
 </section>
 
-<div class="p-grid-2col">
+<div class="p-grid-2col p-mt-1">
   <section class="p-card">
-    <div class="p-card-head"><h2 class="p-card-title">Recovery rate comparison</h2></div>
+    <div class="p-card-head"><h2 class="p-card-title">Recovery rate</h2></div>
     <div class="p-card-body">
       <div class="p-bar-h-row">
         <div class="p-bar-h-head"><span>AI Recovery</span><span>{{ eval_ui.recovery_rate_ours }}%</span></div>
@@ -46,7 +54,7 @@
     </div>
   </section>
   <section class="p-card">
-    <div class="p-card-head"><h2 class="p-card-title">Efficiency</h2></div>
+    <div class="p-card-head"><h2 class="p-card-title">Experiment efficiency</h2></div>
     <div class="p-card-body">
       <dl class="p-stat-grid">
         <div class="p-stat"><dt>Cost / ₹ recovered</dt><dd>{{ eval_ui.cost_per_rupee_ours }} vs {{ eval_ui.cost_per_rupee_baseline }}</dd></div>
@@ -66,7 +74,7 @@
         <tbody>
           {% for r in eval_ui.run_history %}
           <tr>
-            <td><a href="/ui/batch?run={{ r.run_id }}" class="case-link">{{ r.run_id }}</a></td>
+            <td><a href="/ui/evaluate?run={{ r.run_id }}" class="case-link">{{ r.run_id }}</a></td>
             <td>{{ r.seed }}</td>
             <td>{{ r.n }}</td>
             <td class="num">{{ r.advantage }}</td>
