@@ -1,0 +1,81 @@
+{
+  "compare": {
+    "n200": {
+      "seed": 42,
+      "n": 200,
+      "ours_rr": 0.707723,
+      "b2_rr": 0.608828,
+      "ours_net": 174488.06,
+      "b2_net": 146616.98,
+      "delta_net": 27871.08,
+      "ours_gross": 178063.0,
+      "b2_gross": 153181.0,
+      "ours_wasted": 0,
+      "b2_wasted": 100
+    },
+    "n500": {
+      "seed": 42,
+      "n": 500,
+      "ours_rr": 0.74694,
+      "b2_rr": 0.597692,
+      "ours_net": 489603.64,
+      "b2_net": 382466.88,
+      "delta_net": 107136.76,
+      "ours_gross": 499628.0,
+      "b2_gross": 399796.0,
+      "ours_wasted": 0,
+      "b2_wasted": 258
+    },
+    "n1000": {
+      "seed": 42,
+      "n": 1000,
+      "ours_rr": 0.754774,
+      "b2_rr": 0.596151,
+      "ours_net": 960779.84,
+      "b2_net": 740353.8,
+      "delta_net": 220426.04,
+      "ours_gross": 980452.0,
+      "b2_gross": 774400.0,
+      "ours_wasted": 0,
+      "b2_wasted": 536
+    }
+  },
+  "segments_n500": {
+    "ours": {
+      "AMBIGUOUS": {
+        "n": 61,
+        "rec_rate": 0.2951
+      },
+      "CUSTOMER_ACTION": {
+        "n": 152,
+        "rec_rate": 0.7566
+      },
+      "PROHIBITED": {
+        "n": 22,
+        "rec_rate": 0.0455
+      },
+      "RETRY_FIXABLE": {
+        "n": 265,
+        "rec_rate": 0.8981
+      }
+    },
+    "b2": {
+      "AMBIGUOUS": {
+        "n": 61,
+        "rec_rate": 0.3934
+      },
+      "CUSTOMER_ACTION": {
+        "n": 152,
+        "rec_rate": 0.6513
+      },
+      "PROHIBITED": {
+        "n": 22,
+        "rec_rate": 0.3182
+      },
+      "RETRY_FIXABLE": {
+        "n": 265,
+        "rec_rate": 0.6566
+      }
+    }
+  }
+}

@@ -1,85 +1,50 @@
 {% extends "base_product.html" %}
-{% block title %}Recover — Recovery Agent{% endblock %}
+{% block title %}Simulate — Recovery Agent{% endblock %}
 {% set nav_active = 'recover' %}
 {% block content %}
-<header class="p-page-header">
-  <nav class="p-breadcrumb"><a href="/ui">Overview</a> / Recover</nav>
-  <h1 class="p-page-title">Recover</h1>
-  <p class="p-page-sub">Take action on failed payments — review recommendations and recovery status.</p>
-  <div class="p-page-actions">
-    <form method="post" action="/ui/demo/ai-case" class="ai-demo-form" style="display:inline">
-      <input type="hidden" name="raw_error_reason" class="reason-field" value="{{ default_reason }}" />
-      <input type="hidden" name="amount_paise" value="49900" />
-      <button type="submit" class="p-btn p-btn--primary">Run new recovery</button>
-    </form>
+<header class="p-page-header j-header">
+  <div>
+    <span class="p-badge p-badge--info">Simulated</span>
+    <h1 class="p-page-title">Simulate recovery</h1>
+    <p class="p-page-sub">Seeded declines — no Razorpay API. Watch RAG + agent reasoning before any live call.</p>
   </div>
 </header>
 
-<section class="p-card">
-  <div class="p-card-head">
-    <h2 class="p-card-title">Recovery queue</h2>
-    <span class="p-text-muted">{{ mock.queue | length }} payments need attention</span>
+<div class="j-payment-card j-payment-card--sim">
+  <div>
+    <p class="p-kicker">Failed payment · sim</p>
+    <p class="j-payment-amount">₹{{ "{:,.2f}".format(demo_amount_inr) }}</p>
+    <p class="p-text-muted">Card · at risk if unrecovered</p>
   </div>
-  <div class="p-card-body" style="padding:0">
-    {% set queue = mock.queue %}
-    {% include "components/product/_recover_queue_table.html" %}
-  </div>
-</section>
-
-<details class="p-card p-mt-1">
-  <summary class="p-card-head" style="cursor:pointer">
-    <h2 class="p-card-title">Run recovery pipeline</h2>
-    <span class="p-text-muted">Live backend · creates a new case</span>
-  </summary>
-  <div class="p-card-body">
+  <div class="j-payment-meta">
     {% if rag_enabled %}
-    <div class="p-banner p-banner--info">Memory-assisted · Inherent{% if similar_cases %} · {{ similar_cases }} similar cases{% endif %}</div>
+    <span class="p-badge p-badge--success">RAG · {{ similar_cases }} episodes</span>
+    {% else %}
+    <span class="p-badge p-badge--muted">{{ rag_label }}</span>
     {% endif %}
-    <div class="p-form-row">
-      <label for="demo-reason">Failure reason</label>
-      <select id="demo-reason" aria-label="Failure reason">
-        {% for value, label in failure_options %}
-        <option value="{{ value }}" {% if value == default_reason %}selected{% endif %}>{{ label }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <form method="post" action="/ui/demo/ai-case" class="ai-demo-form">
-      <input type="hidden" name="raw_error_reason" class="reason-field" value="{{ default_reason }}" />
-      <input type="hidden" name="amount_paise" value="49900" />
-      <button type="submit" class="p-btn p-btn--primary">Run recovery pipeline</button>
-    </form>
-    <p class="p-text-muted">Classification → memory → evidence → AI → safety → case page.</p>
+    {% if ollama_up %}
+    <span class="p-badge p-badge--ai">{{ ollama_model }}</span>
+    {% else %}
+    <span class="p-badge p-badge--fallback">Rules fallback</span>
+    {% endif %}
   </div>
-</details>
+</div>
 
-<details class="p-card p-mt-1">
-  <summary class="p-card-head" style="cursor:pointer">
-    <h2 class="p-card-title">Pipeline preview</h2>
-  </summary>
-  <div class="p-card-body">
-    <div class="p-grid-2 p-grid-2--wide">
-      <div>
-        {% set pipeline = workspace.pipeline %}
-        {% include "components/product/_pipeline_timeline.html" %}
-      </div>
-      <div>
-        {% set decision = workspace.decision %}
-        {% set safety_checks = workspace.safety_checks %}
-        {% include "components/product/_decision_panel.html" %}
-      </div>
-    </div>
+<div class="j-controls">
+  <div class="p-form-row j-controls__field">
+    <label for="demo-reason">Failure reason</label>
+    <select id="demo-reason" aria-label="Failure reason">
+      {% for value, label in failure_options %}
+      <option value="{{ value }}" {% if value == default_reason %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
   </div>
-</details>
+  <button type="button" class="p-btn p-btn--primary" id="think-run">Run simulated pipeline</button>
+</div>
 
-<script>
-(function () {
-  var sel = document.getElementById("demo-reason");
-  if (!sel) return;
-  function sync() {
-    document.querySelectorAll(".reason-field").forEach(function (el) { el.value = sel.value; });
-  }
-  sel.addEventListener("change", sync);
-  sync();
-})();
-</script>
+{% set mode = 'sim' %}
+{% include "components/product/_think_runner.html" %}
+{% endblock %}
+{% block extra_scripts %}
+<script src="/static/think.js" data-live="{{ think_live }}" data-mode="sim"></script>
 {% endblock %}

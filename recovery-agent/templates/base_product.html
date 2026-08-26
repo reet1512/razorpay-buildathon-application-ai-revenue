@@ -15,27 +15,16 @@
   <header class="p-topnav">
     <a class="p-brand" href="/ui">Recovery Agent</a>
     <nav class="p-nav" aria-label="Primary">
-      <a href="/ui" class="{% if nav_active == 'overview' %}is-active{% endif %}">Overview</a>
-      <a href="/ui/recover" class="{% if nav_active == 'recover' %}is-active{% endif %}">Recover</a>
-      <a href="/ui/cases" class="{% if nav_active == 'cases' %}is-active{% endif %}">Cases</a>
-      <a href="/ui/intelligence" class="{% if nav_active == 'intelligence' %}is-active{% endif %}">Intelligence</a>
-      <a href="/ui/evaluate" class="{% if nav_active == 'evaluate' %}is-active{% endif %}">Evaluate</a>
-      <a href="/ui/live-test" class="{% if nav_active == 'live_test' %}is-active{% endif %}">Live Test</a>
-      <a href="/ui/api" class="{% if nav_active == 'api' %}is-active{% endif %}">API</a>
+      <a href="/ui" class="{% if nav_active == 'overview' %}is-active{% endif %}">Stats</a>
+      <a href="/ui/recover" class="{% if nav_active == 'recover' %}is-active{% endif %}">Simulate</a>
+      <a href="/ui/live-test" class="{% if nav_active == 'live_test' %}is-active{% endif %}">Live</a>
     </nav>
     <div class="p-nav-right">
-      <input type="search" class="p-search" placeholder="Search cases…" aria-label="Search" />
-      <a href="/sign-out" class="p-user-menu">Sign out</a>
+      <span class="p-text-muted" style="font-size:0.75rem;font-weight:600;letter-spacing:0.04em;text-transform:uppercase">AI proposes · Gates dispose</span>
     </div>
   </header>
 
   <div class="p-body">
-    {% if sidebar %}
-    <aside class="p-sidebar" aria-label="Section navigation">
-      {% block sidebar %}{% endblock %}
-    </aside>
-    {% endif %}
-
     <main class="p-main">
       {% block content %}{% endblock %}
     </main>

@@ -9,13 +9,13 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 
 from config.costs import all_costs
 from demo.fraud_gate import run_fraud_gate_demo
-from demo.live_flow import execute_link_for_case, run_ai_demo_case
+from demo.live_flow import execute_link_for_case, iter_ai_demo_case, run_ai_demo_case
 from demo.replay import replay_fixture
 from eval.break_even import solve_break_even
 from eval.benchmark import DEFAULT_MULTI_SEEDS, parse_seeds_arg
@@ -29,7 +29,12 @@ from guard.audit import build_audit_log, headline_gate_block
 from ledger import reader
 from ledger.service import get_case_trail
 from ai.client import LLMClient
-from api.ui_helpers import build_case_view, platform_metrics, recover_demo_context
+from api.ui_helpers import (
+    build_case_view,
+    platform_metrics,
+    rag_status_payload,
+    recover_demo_context,
+)
 from api.ui_mock import (
     api_docs_context,
     case_detail_mock,
@@ -104,8 +109,10 @@ def _metrics_by_label(record) -> dict:
     return {m.label: m for m in record.metrics}
 
 
-def _latest_live_plink(session) -> tuple[Optional[str], Optional[str]]:
-    """Most recent ledger outcome with a real Razorpay plink_ id."""
+def _latest_live_plink(session) -> tuple[Optional[str], Optional[str], Optional[float]]:
+    """Most recent ledger outcome with a real Razorpay plink_ id + amount INR."""
+    from ledger.models import CaseRow
+
     stmt = (
         select(LedgerEntryRow)
         .where(LedgerEntryRow.kind == LedgerKind.outcome.value)
@@ -119,8 +126,12 @@ def _latest_live_plink(session) -> tuple[Optional[str], Optional[str]]:
             continue
         ext = str(payload.get("external_id") or "")
         if ext.startswith("plink_") and not ext.startswith("plink_test_"):
-            return row.case_id, ext
-    return None, None
+            amount_inr = None
+            case = session.get(CaseRow, row.case_id)
+            if case is not None:
+                amount_inr = round(case.amount_paise / 100.0, 2)
+            return row.case_id, ext, amount_inr
+    return None, None, None
 
 
 def _demo_context(
@@ -128,6 +139,7 @@ def _demo_context(
     run=None,
     live_case_id=None,
     live_plink=None,
+    live_amount_inr=None,
 ) -> dict:
     ollama = LLMClient()
     by_label = _metrics_by_label(run) if run else {}
@@ -136,89 +148,84 @@ def _demo_context(
         "by_label": by_label,
         "live_case_id": live_case_id,
         "live_plink": live_plink,
+        "live_amount_inr": live_amount_inr,
         "ollama_up": ollama.available(),
         "ollama_model": ollama.model,
         "failure_options": _FAILURE_OPTIONS,
         "default_reason": FailureReason.insufficient_funds.value,
+        "demo_amount_inr": 499.0,
         "platform": platform_metrics(run, by_label),
         **recover_demo_context(),
     }
 
 
 @router.get("/", response_class=HTMLResponse)
-def landing_page(request: Request) -> HTMLResponse:
-    """Public marketing landing page."""
-    return templates.TemplateResponse(request, "landing.html", {})
+def landing_page() -> RedirectResponse:
+    return RedirectResponse(url="/ui", status_code=303)
 
 
 @router.get("/sign-in", response_class=HTMLResponse)
-def sign_in_page(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(request, "sign_in.html", {})
+def sign_in_page() -> RedirectResponse:
+    return RedirectResponse(url="/ui", status_code=303)
 
 
 @router.post("/sign-in")
-async def sign_in_submit(request: Request) -> RedirectResponse:
-    """Demo sign-in — sets a session cookie and enters the app."""
-    response = RedirectResponse(url="/ui", status_code=303)
-    response.set_cookie(key="ra_session", value="demo", httponly=True, max_age=86400 * 7)
-    return response
+def sign_in_submit() -> RedirectResponse:
+    return RedirectResponse(url="/ui", status_code=303)
 
 
 @router.get("/sign-out")
 def sign_out() -> RedirectResponse:
-    response = RedirectResponse(url="/", status_code=303)
-    response.delete_cookie(key="ra_session")
-    return response
+    return RedirectResponse(url="/ui", status_code=303)
 
 
 @router.get("/ui", response_class=HTMLResponse)
 def app_overview(request: Request) -> HTMLResponse:
-    """Operations overview dashboard."""
-    store = get_store()
-    run = store.latest()
-    by_label = _metrics_by_label(run) if run else {}
-    platform = platform_metrics(run, by_label)
-    mock = overview_context()
-    if platform.get("has_eval_run") and platform.get("net_recovered_inr"):
-        mock["kpis"][0]["value"] = f"₹{platform['net_recovered_inr'] / 1000:,.1f}K"
-    if platform.get("recovery_rate_pct") is not None:
-        mock["kpis"][1]["value"] = f"{platform['recovery_rate_pct']}%"
-    return templates.TemplateResponse(
-        request,
-        "product/overview.html",
-        {"nav_active": "overview", "mock": mock, "platform": platform},
-    )
-
-
-@router.get("/ui/evaluate", response_class=HTMLResponse)
-def evaluate_page(request: Request) -> HTMLResponse:
-    """Evaluation — AI vs baseline."""
+    """Ours vs B2 recovery stats, RAG, and agentic recovery."""
     store = get_store()
     run_id = request.query_params.get("run")
     run = store.get(run_id) if run_id else store.latest()
     if run is None and run_id:
         run = store.latest()
     by_label = _metrics_by_label(run) if run else {}
+    platform = platform_metrics(run, by_label)
     eval_ui = evaluate_ui_context(run, by_label)
+    ollama = LLMClient()
     return templates.TemplateResponse(
         request,
-        "product/evaluate.html",
+        "product/overview.html",
         {
-            "nav_active": "evaluate",
+            "nav_active": "overview",
             "eval_ui": eval_ui,
+            "platform": platform,
             "run": run,
-            "by_label": by_label,
+            "ollama_up": ollama.available(),
+            "ollama_model": ollama.model,
+            "error": request.query_params.get("error"),
         },
     )
 
 
+@router.get("/ui/rag-status")
+def ui_rag_status(request: Request) -> JSONResponse:
+    """Live Inherent / RAG status for Stats page polling (Public API :18000)."""
+    force = request.query_params.get("force", "1") not in ("0", "false", "no")
+    return JSONResponse(rag_status_payload(force=force))
+
+
+@router.get("/ui/evaluate", response_class=HTMLResponse)
+def evaluate_page(request: Request) -> RedirectResponse:
+    run_id = request.query_params.get("run")
+    url = f"/ui?run={run_id}" if run_id else "/ui"
+    return RedirectResponse(url=url, status_code=303)
+
+
 @router.get("/ui/recover", response_class=HTMLResponse)
 def recover_page(request: Request) -> HTMLResponse:
-    """Recover a failed payment — operational queue + live pipeline."""
+    """Simulated recovery pipeline with live thinking."""
     ctx = _demo_context()
     ctx["nav_active"] = "recover"
-    ctx["workspace"] = recover_workspace_context()
-    ctx["mock"] = recover_page_context()
+    ctx["think_live"] = 0
     return templates.TemplateResponse(request, "product/recover.html", ctx)
 
 
@@ -288,11 +295,16 @@ def live_test_page(request: Request) -> HTMLResponse:
     """Live Razorpay test payment loop."""
     session = SessionLocal()
     try:
-        live_case_id, live_plink = _latest_live_plink(session)
+        live_case_id, live_plink, live_amount_inr = _latest_live_plink(session)
     finally:
         session.close()
-    ctx = _demo_context(live_case_id=live_case_id, live_plink=live_plink)
+    ctx = _demo_context(
+        live_case_id=live_case_id,
+        live_plink=live_plink,
+        live_amount_inr=live_amount_inr,
+    )
     ctx["nav_active"] = "live_test"
+    ctx["think_live"] = 1
     return templates.TemplateResponse(request, "product/live_test.html", ctx)
 
 
@@ -300,7 +312,7 @@ def live_test_page(request: Request) -> HTMLResponse:
 def batch_page(request: Request) -> HTMLResponse:
     """Legacy alias — redirects to Evaluate."""
     run_id = request.query_params.get("run")
-    url = f"/ui/evaluate?run={run_id}" if run_id else "/ui/evaluate"
+    url = f"/ui?run={run_id}" if run_id else "/ui"
     return RedirectResponse(url=url, status_code=303)
 
 
@@ -316,7 +328,7 @@ async def batch_run(request: Request) -> RedirectResponse:
         labels=["b2", "ours"],
         cost_overrides=overrides or None,
     )
-    return RedirectResponse(url=f"/ui/evaluate?run={record.run_id}", status_code=303)
+    return RedirectResponse(url=f"/ui?run={record.run_id}", status_code=303)
 
 
 @router.get("/ui/batch/distribution", response_class=HTMLResponse)
@@ -441,6 +453,40 @@ def ui_ai_case(
     return RedirectResponse(
         url=f"/ui/cases/{result['case_id']}{qs}",
         status_code=303,
+    )
+
+
+def _sse_pack(event: str, data: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+
+@router.get("/ui/demo/think")
+def think_stream(
+    raw_error_reason: str = "insufficient_funds",
+    amount_paise: int = 49900,
+    live: int = 0,
+):
+    """Server-sent pipeline steps for Simulate and Live thinking views."""
+
+    def gen():
+        try:
+            for ev in iter_ai_demo_case(
+                raw_error_reason=raw_error_reason,
+                amount_paise=int(amount_paise),
+                create_payment_link=bool(int(live)),
+            ):
+                yield _sse_pack(ev.get("event") or "step", ev)
+        except Exception as exc:
+            yield _sse_pack("fail", {"message": str(exc)[:240]})
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
     )
 
 @router.post("/ui/cases/{case_id}/create-link")

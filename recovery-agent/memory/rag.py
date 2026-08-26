@@ -7,6 +7,7 @@ Measures real search latency and result counts. Does not alter agent decisions.
 from __future__ import annotations
 
 import asyncio
+import re
 import time
 from typing import Any, Optional
 
@@ -72,6 +73,27 @@ def is_rag_configured() -> bool:
     return bool(cfg.enabled and cfg.api_key)
 
 
+def probe_inherent_health(*, timeout_seconds: float = 2.0) -> bool:
+    """True when Inherent Public API /health responds OK (port 18000 by default)."""
+    cfg = InherentConfig.from_env()
+    url = f"{cfg.base_url.rstrip('/')}/health"
+    try:
+        import httpx
+
+        with httpx.Client(timeout=timeout_seconds) as client:
+            resp = client.get(url)
+        if resp.status_code != 200:
+            return False
+        try:
+            body = resp.json()
+        except Exception:
+            return True
+        status = str(body.get("status", "")).lower()
+        return status in ("", "healthy", "ok", "up")
+    except Exception:
+        return False
+
+
 def build_retrieval_query(
     *,
     failure_reason: str,
@@ -84,7 +106,18 @@ def build_retrieval_query(
         rc_label = rc.value.replace("_", " ")
     except (ValueError, KeyError):
         rc_label = ""
-    parts = [rail_label, reason_label, rc_label, "payment recovery"]
+    # Verb hint improves Inherent hybrid retrieval for cause-aware episodes.
+    verb_hint = {
+        "insufficient_funds": "schedule retry salary window",
+        "issuer_transient": "quick silent retry",
+        "gateway_timeout": "quick silent retry",
+        "card_expired": "send payment link update card",
+        "token_invalid": "send payment link retokenize",
+        "mandate_revoked": "request mandate update",
+        "do_not_honour": "spaced retry then link",
+        "risk_fraud": "escalate human prohibited",
+    }.get(failure_reason, "")
+    parts = [rail_label, reason_label, rc_label, verb_hint, "payment recovery"]
     return " ".join(p for p in parts if p)
 
 
@@ -93,10 +126,22 @@ def _top_score(results: list[RetrievalResult]) -> Optional[float]:
     return max(scores) if scores else None
 
 
-def _episode_summaries(results: list[RetrievalResult], *, limit: int = 5) -> list[dict[str, Any]]:
+def _action_from_document_name(name: Optional[str]) -> Optional[str]:
+    """Parse action suffix from sim filenames, e.g. ...-case48-delayed_retry.txt."""
+    if not name:
+        return None
+    stem = name[:-4] if name.endswith(".txt") else name
+    m = re.search(r"-case\d+-(.+)$", stem)
+    if m:
+        return m.group(1).replace("-", "_")
+    return None
+
+
+def _episode_summaries(results: list[RetrievalResult], *, limit: int = 8) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for r in results[:limit]:
         md = r.metadata or {}
+        action = md.get("action") or _action_from_document_name(r.document_name)
         rows.append(
             {
                 "document_id": r.document_id or r.episode_id,
@@ -104,7 +149,7 @@ def _episode_summaries(results: list[RetrievalResult], *, limit: int = 5) -> lis
                 "score": r.score,
                 "recovery_class": md.get("recovery_class"),
                 "failure_reason": md.get("failure_reason"),
-                "action": md.get("action"),
+                "action": action,
                 "outcome": md.get("outcome"),
                 "seed": md.get("seed"),
             }

@@ -26,6 +26,7 @@ from ai.schemas import (
     ProposalPayload,
 )
 from diagnose.scoring import recoverability_score
+from logging_util import slog
 from policy.engine import PolicyEngine, get_engine
 from policy.schemas import Action, ActionVerb, Channel, ProposedBy
 
@@ -43,6 +44,19 @@ def amount_bucket_inr(amount_paise: int) -> str:
     return "2000+"
 
 
+def _canned_contact_message() -> MessageDraft:
+    """Safe payer copy when LLM message draft fails or rules fallback runs."""
+    return MessageDraft(
+        channel=Channel.link,
+        subject="Update your payment method",
+        body=(
+            "Your subscription payment did not go through. "
+            "Please update your payment method or use the secure link to continue."
+        ),
+        source="canned_fallback",
+    )
+
+
 def build_context(
     *,
     raw_error_reason: str,
@@ -57,6 +71,8 @@ def build_context(
     event_id: str = "unknown",
     case_id: Optional[str] = None,
     engine: Optional[PolicyEngine] = None,
+    rag_episodes: Optional[list[dict[str, Any]]] = None,
+    rag_query: Optional[str] = None,
 ) -> CaseContext:
     eng = engine or get_engine()
     classes = sorted((eng.taxonomy.get("classes") or {}).keys())
@@ -76,6 +92,8 @@ def build_context(
         tenure_days=tenure_days,
         allowed_classes=classes,
         allowed_verbs=verbs,
+        rag_episodes=list(rag_episodes or []),
+        rag_query=rag_query,
     )
 
 
@@ -109,6 +127,7 @@ class RecoveryAgent:
                 ctx,
                 rules,
                 reason="ollama_unavailable",
+                error_detail="Ollama health check failed (GET /api/tags)",
                 diagnosis=Diagnosis(
                     summary=f"Rules fallback: classified as {rules.failure_class}",
                     likely_class=rules.failure_class,
@@ -132,12 +151,13 @@ class RecoveryAgent:
             return self._fallback(
                 ctx,
                 rules,
-                reason=f"diagnose_failed:{exc}",
+                reason="diagnose_failed",
+                error_detail=f"{type(exc).__name__}: {exc}",
                 diagnosis=Diagnosis(
                     summary=f"Rules fallback after diagnose failure ({rules.failure_class})",
                     likely_class=rules.failure_class,
                     confidence=0.3,
-                    rationale=str(exc),
+                    rationale=f"Diagnose failed ({type(exc).__name__}); used taxonomy rules. {exc}",
                 ),
             )
 
@@ -165,8 +185,16 @@ class RecoveryAgent:
             return self._fallback(
                 ctx,
                 rules,
-                reason=f"propose_failed:{exc}",
-                diagnosis=diagnosis,
+                reason="propose_failed",
+                error_detail=f"{type(exc).__name__}: {exc}",
+                diagnosis=diagnosis.model_copy(
+                    update={
+                        "rationale": (
+                            f"Propose failed ({type(exc).__name__}); "
+                            f"used taxonomy rules. {exc}"
+                        )
+                    }
+                ),
             )
 
         draft_action = Action(
@@ -189,7 +217,9 @@ class RecoveryAgent:
         )
 
         # --- 3) Message (only if contact-like verb) ---
+        # Failure here does not change the gated action; copy is canned + logged.
         message: Optional[MessageDraft] = None
+        message_note = ""
         if validated.verb in {
             ActionVerb.send_payment_link,
             ActionVerb.request_mandate_update,
@@ -202,16 +232,22 @@ class RecoveryAgent:
                     ),
                     schema_hint="channel,subject,body",
                 )
-                message = MessageDraft.model_validate(msg_raw)
-            except Exception:
-                message = MessageDraft(
-                    channel=Channel.link,
-                    subject="Action needed for your subscription",
-                    body=(
-                        "Your recent subscription payment did not go through. "
-                        "Please update your payment method using the secure link we sent."
-                    ),
+                message = MessageDraft.model_validate(msg_raw).model_copy(
+                    update={"source": "llm"}
                 )
+            except Exception as exc:
+                detail = f"{type(exc).__name__}: {exc}"
+                slog(
+                    "agent_message_fallback",
+                    case_id=ctx.case_id,
+                    event_id=ctx.event_id,
+                    status="canned_fallback",
+                    reason="message_draft_failed",
+                    error=detail,
+                    verb=validated.verb.value,
+                )
+                message = _canned_contact_message()
+                message_note = f"message_draft_failed:{detail}"
 
         ledger_events = self._ledger_events(
             diagnosis=diagnosis,
@@ -219,6 +255,7 @@ class RecoveryAgent:
             validated=validated,
             message=message,
             used_llm=True,
+            extra_note=message_note,
             ctx=ctx,
         )
         return AgentRunResult(
@@ -227,6 +264,7 @@ class RecoveryAgent:
             proposal_raw=proposal,
             action_validated=validated,
             message=message,
+            source="llm",
             used_llm=True,
             fallback_reason=None,
             decision_rules=rules,
@@ -238,6 +276,11 @@ class RecoveryAgent:
         try:
             return self.client.chat_json(system, user)
         except LLMError as first:
+            slog(
+                "llm_json_repair",
+                status="retry",
+                error=f"{type(first).__name__}: {first}",
+            )
             repair = prompts.repair_user(str(first), str(first), schema_hint)
             return self.client.chat_json(system, repair)
 
@@ -248,7 +291,19 @@ class RecoveryAgent:
         *,
         reason: str,
         diagnosis: Diagnosis,
+        error_detail: str = "",
     ) -> AgentRunResult:
+        detail = error_detail or reason
+        slog(
+            "agent_rules_fallback",
+            case_id=ctx.case_id,
+            event_id=ctx.event_id,
+            status="rules_fallback",
+            reason=reason,
+            error=detail,
+            failure_class=rules.failure_class,
+            verb=(rules.actions[0].verb.value if rules.actions else "escalate_human"),
+        )
         action = rules.actions[0] if rules.actions else Action(
             verb=ActionVerb.escalate_human,
             proposed_by=ProposedBy.rules_fallback,
@@ -256,30 +311,27 @@ class RecoveryAgent:
             policy_version=rules.policy_version,
             reason_code="FALLBACK",
         )
-        # Stamp fallback provenance
+        # Stamp fallback provenance — never look like ProposedBy.llm
         action = action.model_copy(
-            update={"proposed_by": ProposedBy.rules_fallback, "note": f"fallback:{reason}"}
+            update={
+                "proposed_by": ProposedBy.rules_fallback,
+                "note": f"fallback:{reason}:{detail}"[:500],
+            }
         )
         message = None
         if action.verb in {
             ActionVerb.send_payment_link,
             ActionVerb.request_mandate_update,
         }:
-            message = MessageDraft(
-                channel=Channel.link,
-                subject="Action needed for your subscription",
-                body=(
-                    "Your recent subscription payment did not go through. "
-                    "Please update your payment method using the secure link."
-                ),
-            )
+            message = _canned_contact_message()
+        fallback_reason = reason if not error_detail else f"{reason}:{error_detail}"
         ledger_events = self._ledger_events(
             diagnosis=diagnosis,
             proposal=None,
             validated=action,
             message=message,
             used_llm=False,
-            extra_note=reason,
+            extra_note=fallback_reason,
             ctx=ctx,
         )
         return AgentRunResult(
@@ -288,8 +340,9 @@ class RecoveryAgent:
             proposal_raw=None,
             action_validated=action,
             message=message,
+            source="rules_fallback",
             used_llm=False,
-            fallback_reason=reason,
+            fallback_reason=fallback_reason,
             decision_rules=rules,
             ledger_events=ledger_events,
         )
@@ -332,18 +385,20 @@ class RecoveryAgent:
                 "payload": {
                     "proposal_raw": proposal.model_dump() if proposal else None,
                     "validated": validated.model_dump(mode="json"),
+                    "source": "llm" if used_llm else "rules_fallback",
                     "extra_note": extra_note,
                     "audit": {"model": model_name, "prompt_hash": prompt_hash},
                 },
             },
         ]
         if message is not None:
+            message_from_llm = used_llm and message.source == "llm"
             events.append(
                 {
                     "kind": "action",
-                    "actor": "llm" if used_llm else "system",
+                    "actor": "llm" if message_from_llm else "system",
                     "reason_code": "message_draft",
-                    "payload": message.model_dump(),
+                    "payload": message.model_dump(mode="json"),
                 }
             )
         return events

@@ -1,0 +1,41 @@
+{
+  "n200": {
+    "seed": 42,
+    "n": 200,
+    "ours_rr": 0.476169,
+    "b2_rr": 0.489662,
+    "ours_net": 117396.76,
+    "b2_net": 117234.02,
+    "delta_net": 162.74,
+    "ours_gross": 119804.0,
+    "b2_gross": 123199.0,
+    "ours_wasted": 0,
+    "b2_wasted": 130
+  },
+  "n500": {
+    "seed": 42,
+    "n": 500,
+    "ours_rr": 0.52987,
+    "b2_rr": 0.479659,
+    "ours_net": 347315.96,
+    "b2_net": 305092.12,
+    "delta_net": 42223.84,
+    "ours_gross": 354430.0,
+    "b2_gross": 320844.0,
+    "ours_wasted": 0,
+    "b2_wasted": 338
+  },
+  "n1000": {
+    "seed": 42,
+    "n": 1000,
+    "ours_rr": 0.538771,
+    "b2_rr": 0.49553,
+    "ours_net": 685815.94,
+    "b2_net": 612257.34,
+    "delta_net": 73558.6,
+    "ours_gross": 699863.0,
+    "b2_gross": 643693.0,
+    "ours_wasted": 0,
+    "b2_wasted": 710
+  }
+}

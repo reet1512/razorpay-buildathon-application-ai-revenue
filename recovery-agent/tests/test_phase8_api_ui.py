@@ -100,8 +100,8 @@ def test_batch_ui_renders_after_run(client: TestClient):
     page = client.get("/ui/batch")
     assert page.status_code == 200
     assert b"Recovery Agent" in page.content
-    assert b"Evaluate" in page.content
     assert b"Gate blocks" in page.content
+    assert b"Ours" in page.content or b"evaluation" in page.content.lower()
 
 
 def test_webhook_ingest_with_signature(client: TestClient):
@@ -159,3 +159,22 @@ def test_run_eval_service_delta():
     rec = run_eval(seed=42, n=50, labels=["b2", "ours"])
     assert rec.delta_ours_vs_b2_inr is not None
     assert set(rec.gate_blocks) == {"b2", "ours"}
+
+
+def test_ui_rag_status_endpoint(client: TestClient, monkeypatch):
+    from memory.rag import RagMetrics
+    from unittest.mock import patch
+
+    monkeypatch.setenv("INHERENT_ENABLED", "true")
+    monkeypatch.setenv("INHERENT_API_KEY", "ink_test")
+    fake = RagMetrics(enabled=True, available=True, similar_cases=3, retrieval_latency_ms=40)
+    with (
+        patch("api.ui_helpers.probe_platform_rag", return_value=fake),
+        patch("api.ui_helpers.probe_inherent_health", return_value=True),
+    ):
+        r = client.get("/ui/rag-status?force=1")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["rag_online"] is True
+    assert body["rag_label"] == "RAG ACTIVE"
+    assert body["similar_cases"] == 3

@@ -5,6 +5,7 @@ ai/prompts.py — prompt builders (no PII).
 from __future__ import annotations
 
 import hashlib
+from typing import Any
 
 from ai.schemas import CaseContext
 
@@ -16,6 +17,8 @@ Return ONLY valid JSON (no markdown, no prose) with keys:
   confidence (number 0..1),
   rationale (string).
 Never invent customer PII. Never suggest illegal or unbounded actions.
+When historical_similar_episodes are provided, use them as reference evidence
+(what worked or failed for similar failures) but still pick likely_class from allowed_classes.
 """
 
 
@@ -31,6 +34,9 @@ Rules:
 - Risk/fraud: escalate_human only.
 - NSF/time-shiftable: prefer schedule_retry with day_offset away from day 0 when possible.
 - Do not invent new verbs.
+- When historical_similar_episodes are present, prefer verbs/outcomes that succeeded on
+  similar failures unless policy rules above forbid them. Mention that evidence briefly in note.
+  Prefer citing the top episode action when it matches an allowed verb.
 """
 
 
@@ -57,33 +63,66 @@ def propose_prompt_hash(ctx: CaseContext, diagnosis_json: dict) -> str:
     return bundle_hash(PROPOSE_SYSTEM, propose_user(ctx, diagnosis_json))
 
 
+def format_rag_evidence(episodes: list[dict[str, Any]], *, limit: int = 8) -> str:
+    """Compact de-identified Inherent hits for the model (no PII fields)."""
+    if not episodes:
+        return ""
+    lines: list[str] = ["historical_similar_episodes:"]
+    for i, ep in enumerate(episodes[:limit], start=1):
+        score = ep.get("score")
+        score_s = f"{float(score):.3f}" if isinstance(score, (int, float)) else "n/a"
+        parts = [
+            f"#{i}",
+            f"score={score_s}",
+            f"failure={ep.get('failure_reason') or 'unknown'}",
+            f"class={ep.get('recovery_class') or 'unknown'}",
+            f"action={ep.get('action') or 'unknown'}",
+            f"outcome={ep.get('outcome') or 'unknown'}",
+        ]
+        name = ep.get("document_name")
+        if name:
+            parts.append(f"doc={name}")
+        lines.append("- " + " | ".join(parts))
+    return "\n".join(lines)
+
+
 def diagnose_user(ctx: CaseContext) -> str:
-    return (
-        f"allowed_classes: {ctx.allowed_classes}\n"
-        f"raw_error_reason: {ctx.raw_error_reason}\n"
-        f"raw_error_code: {ctx.raw_error_code}\n"
-        f"rail: {ctx.rail}\n"
-        f"amount_bucket_inr: {ctx.amount_bucket_inr}\n"
-        f"attempt_number: {ctx.attempt_number}\n"
-        f"failure_dom: {ctx.failure_dom}\n"
-        f"observed_credit_day: {ctx.observed_credit_day}\n"
-        "Respond with JSON only."
-    )
+    parts = [
+        f"allowed_classes: {ctx.allowed_classes}",
+        f"raw_error_reason: {ctx.raw_error_reason}",
+        f"raw_error_code: {ctx.raw_error_code}",
+        f"rail: {ctx.rail}",
+        f"amount_bucket_inr: {ctx.amount_bucket_inr}",
+        f"attempt_number: {ctx.attempt_number}",
+        f"failure_dom: {ctx.failure_dom}",
+        f"observed_credit_day: {ctx.observed_credit_day}",
+    ]
+    if ctx.rag_query:
+        parts.append(f"retrieval_query: {ctx.rag_query}")
+    evidence = format_rag_evidence(ctx.rag_episodes)
+    if evidence:
+        parts.append(evidence)
+    parts.append("Respond with JSON only.")
+    return "\n".join(parts)
 
 
 def propose_user(ctx: CaseContext, diagnosis_json: dict) -> str:
-    return (
-        f"allowed_verbs: {ctx.allowed_verbs}\n"
-        f"allowed_classes: {ctx.allowed_classes}\n"
-        f"diagnosis: {diagnosis_json}\n"
-        f"raw_error_reason: {ctx.raw_error_reason}\n"
-        f"rail: {ctx.rail}\n"
-        f"amount_bucket_inr: {ctx.amount_bucket_inr}\n"
-        f"attempt_number: {ctx.attempt_number}\n"
-        f"failure_dom: {ctx.failure_dom}\n"
-        f"observed_credit_day: {ctx.observed_credit_day}\n"
-        "Propose the single best next Action as JSON only."
-    )
+    parts = [
+        f"allowed_verbs: {ctx.allowed_verbs}",
+        f"allowed_classes: {ctx.allowed_classes}",
+        f"diagnosis: {diagnosis_json}",
+        f"raw_error_reason: {ctx.raw_error_reason}",
+        f"rail: {ctx.rail}",
+        f"amount_bucket_inr: {ctx.amount_bucket_inr}",
+        f"attempt_number: {ctx.attempt_number}",
+        f"failure_dom: {ctx.failure_dom}",
+        f"observed_credit_day: {ctx.observed_credit_day}",
+    ]
+    evidence = format_rag_evidence(ctx.rag_episodes)
+    if evidence:
+        parts.append(evidence)
+    parts.append("Propose the single best next Action as JSON only.")
+    return "\n".join(parts)
 
 
 def message_user(ctx: CaseContext, diagnosis_json: dict, verb: str) -> str:

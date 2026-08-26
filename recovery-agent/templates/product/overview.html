@@ -1,67 +1,135 @@
 {% extends "base_product.html" %}
-{% block title %}Overview — Recovery Agent{% endblock %}
+{% block title %}Stats — Recovery Agent{% endblock %}
 {% set nav_active = 'overview' %}
 {% block content %}
-<header class="p-page-header">
-  <h1 class="p-page-title">Revenue Recovery</h1>
-  <p class="p-page-sub">How is revenue recovery performing right now?</p>
+<header class="p-page-header j-header">
+  <div>
+    <p class="p-kicker">Track 03 · AI Revenue Recovery</p>
+    <h1 class="p-page-title">Prove the agent beats the baseline</h1>
+    <p class="p-page-sub">Same failed payments. Ours uses RAG + LLM + policy gates. B2 is a blind retry ladder.</p>
+  </div>
+  <form method="post" action="/ui/batch/run" id="batch-run-form" class="j-run-form">
+    <label>Seed <input type="number" name="seed" value="{{ eval_ui.run.seed if eval_ui.has_run and eval_ui.run else 42 }}" /></label>
+    <label>N <input type="number" name="n" value="{{ eval_ui.run.n if eval_ui.has_run and eval_ui.run else 500 }}" min="10" max="5000" /></label>
+    <button type="submit" class="p-btn p-btn--primary">Run evaluation</button>
+  </form>
 </header>
 
-<div class="p-kpi-row">
-  {% for kpi in mock.kpis %}
-  <div class="p-metric">
-    <p class="p-metric-label">{{ kpi.label }}</p>
-    <p class="p-metric-value">{{ kpi.value }}</p>
-    {% if kpi.delta %}<p class="p-metric-delta">{{ kpi.delta }}</p>{% endif %}
+{% if error %}
+<div class="p-banner p-banner--info">{{ error }}</div>
+{% endif %}
+
+<section class="j-hero-primary" aria-label="Primary metric">
+  <p class="p-kicker">Primary metric</p>
+  <p class="j-hero-primary__label">Net advantage (Ours − B2)</p>
+  <p class="j-hero-primary__value">+₹{{ "{:,.0f}".format(eval_ui.advantage_inr) }}</p>
+  <p class="j-hero-primary__note">On {{ eval_ui.n_cases }} seeded cases — the number judges should remember</p>
+</section>
+
+<section class="j-compare" aria-label="Ours versus baseline">
+  <p class="j-section-label">Recovered revenue · detail</p>
+  <div class="j-compare__grid">
+    <article class="j-compare-card j-compare-card--ours">
+      <div class="j-compare-card__head">
+        <p class="p-kicker">Ours</p>
+        <span class="p-badge p-badge--info">Agent stack</span>
+      </div>
+      <p class="j-money j-money--ours">₹{{ "{:,.0f}".format(eval_ui.ours_inr) }}</p>
+      <div class="j-compare-card__rate">
+        <div class="p-bar-h-head"><span>Recovery rate</span><strong>{{ eval_ui.recovery_rate_ours }}%</strong></div>
+        <div class="p-bar-h-track"><div class="p-bar-h-fill" style="width: {{ eval_ui.recovery_rate_ours }}%"></div></div>
+      </div>
+    </article>
+    <article class="j-compare-card j-compare-card--b2">
+      <div class="j-compare-card__head">
+        <p class="p-kicker">B2 baseline</p>
+        <span class="p-badge p-badge--muted">Blind retry</span>
+      </div>
+      <p class="j-money j-money--b2">₹{{ "{:,.0f}".format(eval_ui.baseline_inr) }}</p>
+      <div class="j-compare-card__rate">
+        <div class="p-bar-h-head"><span>Recovery rate</span><strong>{{ eval_ui.recovery_rate_baseline }}%</strong></div>
+        <div class="p-bar-h-track"><div class="p-bar-h-fill p-bar-h-fill--muted" style="width: {{ eval_ui.recovery_rate_baseline }}%"></div></div>
+      </div>
+    </article>
   </div>
-  {% endfor %}
+</section>
+
+<p class="j-section-label">Why Ours wins · AI stack</p>
+<div class="j-stack-grid">
+  <article class="j-stack-card j-stack-card--agent {% if ollama_up %}is-hot{% endif %}">
+    <p class="p-kicker">Agentic recovery</p>
+    <p class="j-stack-value">{{ ollama_model if ollama_up else "Rules fallback" }}</p>
+    <p class="p-text-muted">LLM proposes · policy validates · gates dispose</p>
+    <dl class="p-stat-grid j-stack-stats">
+      <div class="p-stat"><dt>Success rate</dt><dd>{{ eval_ui.recovery_rate_ours }}%</dd></div>
+      <div class="p-stat"><dt>LLM</dt><dd>{% if ollama_up %}<span class="p-badge p-badge--success">Live</span>{% else %}<span class="p-badge p-badge--muted">Offline</span>{% endif %}</dd></div>
+      <div class="p-stat"><dt>Wasted attempts</dt><dd>{{ eval_ui.wasted_ours }} <span class="p-text-muted">vs {{ eval_ui.wasted_baseline }}</span></dd></div>
+    </dl>
+  </article>
+  <article
+    id="rag-stack-card"
+    class="j-stack-card j-stack-card--rag {% if platform.rag_online %}is-hot{% endif %}"
+    data-rag-card
+  >
+    <p class="p-kicker">RAG memory</p>
+    <p class="j-stack-value" id="rag-label">{{ platform.rag_label }}</p>
+    <p class="p-text-muted">Inherent retrieves similar payment episodes before the agent decides</p>
+    <dl class="p-stat-grid j-stack-stats">
+      <div class="p-stat"><dt>Corpus</dt><dd id="rag-corpus">{{ platform.corpus_completed if platform.corpus_completed else "—" }}</dd></div>
+      <div class="p-stat"><dt>Retrieved</dt><dd id="rag-episodes">{{ platform.similar_cases if platform.rag_enabled else "—" }}</dd></div>
+      <div class="p-stat">
+        <dt>Inherent</dt>
+        <dd id="rag-badge">
+          {% if platform.rag_online %}
+          <span class="p-badge p-badge--success">Live</span>
+          {% else %}
+          <span class="p-badge p-badge--muted">Offline</span>
+          {% endif %}
+        </dd>
+      </div>
+    </dl>
+    <p class="p-text-muted" id="rag-latency-line" style="margin-top:0.65rem;font-size:0.8rem">
+      Search latency: <span id="rag-latency">{{ platform.retrieval_latency_label or "—" }}</span>
+    </p>
+  </article>
+  <article class="j-stack-card">
+    <p class="p-kicker">Safety &amp; cost</p>
+    <p class="j-stack-value">Gate-first</p>
+    <p class="p-text-muted">Fraud / contact / attempt caps refuse unsafe actions before money moves</p>
+    <dl class="p-stat-grid j-stack-stats">
+      <div class="p-stat"><dt>Gate blocks</dt><dd>{{ eval_ui.gate_blocks_ours }} <span class="p-text-muted">vs {{ eval_ui.gate_blocks_baseline }}</span></dd></div>
+      <div class="p-stat"><dt>Cost / ₹</dt><dd>{{ eval_ui.cost_per_rupee_ours }} <span class="p-text-muted">vs {{ eval_ui.cost_per_rupee_baseline }}</span></dd></div>
+    </dl>
+  </article>
 </div>
 
-<section class="p-card p-mt-1">
-  <div class="p-card-head">
-    <h2 class="p-card-title">Recovery performance</h2>
-    <span class="p-legend"><span class="ai">AI Recovery</span><span class="baseline">Baseline</span></span>
-  </div>
-  <div class="p-card-body">
-    <div class="p-chart-row">
-      {% for i in range(mock.performance_chart.labels | length) %}
-      <div class="p-chart-bar-group">
-        <div class="p-chart-bars">
-          <div class="p-chart-bar p-chart-bar--ai" style="height: {{ mock.performance_chart.ai[i] }}%"></div>
-          <div class="p-chart-bar p-chart-bar--baseline" style="height: {{ mock.performance_chart.baseline[i] }}%"></div>
-        </div>
-        <span class="p-chart-label">{{ mock.performance_chart.labels[i] }}</span>
+{% if run and run.segments %}
+<details class="p-disclose p-mt-1" open>
+  <summary>Breakdown by recovery class (Ours vs B2)</summary>
+  <div class="p-disclose-body">
+    {% for seg in run.segments %}
+    <div class="p-bar-h-row">
+      <div class="p-bar-h-head">
+        <span>{{ seg.recovery_class.replace('_', ' ') }} · n={{ seg.n_cases }}</span>
+        <span>
+          Ours ₹{{ "{:,.0f}".format(seg.ours.net_recovered_inr) }}
+          · B2 ₹{{ "{:,.0f}".format(seg.b2.net_recovered_inr) }}
+          · Δ ₹{{ "{:,.0f}".format(seg.delta_net_inr) }}
+        </span>
       </div>
-      {% endfor %}
+      <p class="p-text-muted" style="font-size:0.8rem;margin:0.25rem 0 0">
+        Wasted attempts Ours {{ seg.ours.wasted_attempts }} vs B2 {{ seg.b2.wasted_attempts }}
+        {% if seg.b2_zero_recovery_with_spend %} · B2 spent with zero recovery{% endif %}
+      </p>
     </div>
+    {% endfor %}
   </div>
-</section>
+</details>
+{% endif %}
 
-<section class="p-card p-mt-1">
-  <div class="p-card-head">
-    <h2 class="p-card-title">Recent recovery cases</h2>
-    <a href="/ui/cases" class="p-btn p-btn--ghost">View all cases</a>
-  </div>
-  <div class="p-card-body" style="padding:0">
-    {% set cases = mock.recent_cases[:5] %}
-    {% include "components/product/_cases_table.html" %}
-  </div>
-</section>
+<p class="j-next">Next: <a href="/ui/recover">Simulate thinking</a> · <a href="/ui/live-test">Live Razorpay proof</a></p>
+{% endblock %}
 
-<section class="p-card p-mt-1">
-  <div class="p-card-head">
-    <h2 class="p-card-title">Top failure reasons</h2>
-    <a href="/ui/intelligence" class="p-btn p-btn--ghost">View intelligence</a>
-  </div>
-  <div class="p-card-body">
-    <div class="p-failure-compact">
-      {% for f in mock.failure_reasons_top %}
-      <div class="p-failure-row">
-        <span>{{ f.reason }}</span>
-        <span>{{ f.pct }}% · {{ f.count }}</span>
-      </div>
-      {% endfor %}
-    </div>
-  </div>
-</section>
+{% block extra_scripts %}
+<script src="/static/rag_status.js" defer></script>
 {% endblock %}

@@ -1,0 +1,38 @@
+{
+  "ours": {
+    "AMBIGUOUS": {
+      "n": 61,
+      "rec_rate": 0.1967
+    },
+    "CUSTOMER_ACTION": {
+      "n": 152,
+      "rec_rate": 0.3882
+    },
+    "PROHIBITED": {
+      "n": 22,
+      "rec_rate": 0.0455
+    },
+    "RETRY_FIXABLE": {
+      "n": 265,
+      "rec_rate": 0.7472
+    }
+  },
+  "b2": {
+    "AMBIGUOUS": {
+      "n": 61,
+      "rec_rate": 0.2459
+    },
+    "CUSTOMER_ACTION": {
+      "n": 152,
+      "rec_rate": 0.3882
+    },
+    "PROHIBITED": {
+      "n": 22,
+      "rec_rate": 0.3182
+    },
+    "RETRY_FIXABLE": {
+      "n": 265,
+      "rec_rate": 0.6604
+    }
+  }
+}

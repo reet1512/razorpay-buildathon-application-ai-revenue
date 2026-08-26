@@ -42,11 +42,31 @@ p(contact k) = base * (0.55 ** (k-1))
 This is the most consequential assumption. If challenged: say so, offer to re-run
 with a different factor.
 
+## Contact / retry success priors (updated 2026-08-26)
+
+`eval/payer_model.py` draws `HiddenPayerTruth` by failure reason. Headline knobs:
+
+| Reason family | `base_contact_response_prob` | `retry_success_if_funded` |
+|---|---|---|
+| Dead instrument (expired/token/mandate) | 0.58 | 0.0 |
+| NSF | 0.22 | 0.92 |
+| Transient issuer/gateway | 0.12 | 0.86 |
+| Fraud | 0.05 | 0.05 |
+| Ambiguous / DNH | 0.28 | 0.48 |
+
+Dead-instrument recovery is **contact-only** (pay link / mandate update). NSF/transient
+recovery is **silent-retry-only** inside the funds window (except ambiguous link path).
+
 ## Funds availability (assumption)
 
 For NSF-like failures, funds exist on `true_credit_day` and the next two days
 in a 1..28 day-of-month circle. Transient rail failures can succeed outside that window.
 
+## Salary-window timing (Ours)
+
+`policy/timing.py` expands NSF offsets when `observed_credit_day` is missing or noisy,
+and covers credit-day +2. Transient uses day 0 and day 1. Dead instruments get an
+immediate link plus a day-3 follow-up link (zero retries).
 ## Baselines
 
 | Id | Behavior |

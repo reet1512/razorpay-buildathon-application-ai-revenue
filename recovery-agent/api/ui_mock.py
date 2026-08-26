@@ -456,20 +456,21 @@ def historical_page_context() -> dict[str, Any]:
 
 def evaluate_ui_context(run=None, by_label=None) -> dict[str, Any]:
     mock = {
-        "ours_inr": 60607,
-        "baseline_inr": 59492,
-        "advantage_inr": 1115,
-        "recovery_rate_ours": 48.7,
-        "recovery_rate_baseline": 46.2,
+        "ours_inr": 489604,
+        "baseline_inr": 382467,
+        "advantage_inr": 107137,
+        "recovery_rate_ours": 74.7,
+        "recovery_rate_baseline": 59.8,
         "cost_per_rupee_ours": 0.082,
         "cost_per_rupee_baseline": 0.091,
-        "wasted_ours": 124,
-        "wasted_baseline": 186,
+        "wasted_ours": 0,
+        "wasted_baseline": 258,
         "gate_blocks_ours": 18,
         "gate_blocks_baseline": 22,
+        "n_cases": 500,
         "run_history": [
-            {"run_id": "run_a1b2c3", "seed": 42, "n": 200, "advantage": "+₹1,115", "date": "23 Aug 2026"},
-            {"run_id": "run_d4e5f6", "seed": 43, "n": 200, "advantage": "+₹892", "date": "22 Aug 2026"},
+            {"run_id": "run_a1b2c3", "seed": 42, "n": 500, "advantage": "+₹107,137", "date": "26 Aug 2026"},
+            {"run_id": "run_d4e5f6", "seed": 42, "n": 1000, "advantage": "+₹220,426", "date": "26 Aug 2026"},
         ],
     }
     if run and by_label and by_label.get("ours") and by_label.get("b2"):
@@ -480,6 +481,16 @@ def evaluate_ui_context(run=None, by_label=None) -> dict[str, Any]:
         mock["advantage_inr"] = int(run.delta_net_ours_vs_b2_inr or 0)
         mock["recovery_rate_ours"] = round(ours.recovery_rate * 100, 1) if ours.recovery_rate else mock["recovery_rate_ours"]
         mock["recovery_rate_baseline"] = round(b2.recovery_rate * 100, 1) if b2.recovery_rate else mock["recovery_rate_baseline"]
+        mock["n_cases"] = run.n
+        mock["wasted_ours"] = getattr(ours, "wasted_attempts", mock["wasted_ours"])
+        mock["wasted_baseline"] = getattr(b2, "wasted_attempts", mock["wasted_baseline"])
+        if getattr(run, "gate_blocks", None):
+            mock["gate_blocks_ours"] = run.gate_blocks.get("ours", mock["gate_blocks_ours"])
+            mock["gate_blocks_baseline"] = run.gate_blocks.get("b2", mock["gate_blocks_baseline"])
+        if ours.cost_per_rupee_recovered is not None and ours.cost_per_rupee_recovered >= 0:
+            mock["cost_per_rupee_ours"] = round(ours.cost_per_rupee_recovered, 3)
+        if b2.cost_per_rupee_recovered is not None and b2.cost_per_rupee_recovered >= 0:
+            mock["cost_per_rupee_baseline"] = round(b2.cost_per_rupee_recovered, 3)
         mock["has_run"] = True
         mock["run"] = run
         mock["by_label"] = by_label

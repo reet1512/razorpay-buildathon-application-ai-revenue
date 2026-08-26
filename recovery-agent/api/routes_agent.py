@@ -59,6 +59,23 @@ def agent_run(req: AgentRunRequest) -> dict:
         client.available = lambda: False  # type: ignore[method-assign]
 
     agent = RecoveryAgent(client=client)
+    rag_metrics = None
+    rag_episodes: list = []
+    rag_query = None
+    try:
+        from memory.rag import retrieve_for_payment
+
+        rag_metrics = retrieve_for_payment(
+            failure_reason=req.raw_error_reason,
+            rail=req.rail,
+            limit=20,
+        )
+        if rag_metrics.enabled and rag_metrics.available:
+            rag_episodes = list(rag_metrics.episodes or [])
+            rag_query = rag_metrics.query
+    except Exception:
+        rag_metrics = None
+
     ctx = build_context(
         raw_error_reason=req.raw_error_reason,
         amount_paise=req.amount_paise,
@@ -69,6 +86,11 @@ def agent_run(req: AgentRunRequest) -> dict:
         observed_credit_day=req.observed_credit_day,
         event_id=req.event_id,
         case_id=req.case_id,
+        rag_episodes=rag_episodes,
+        rag_query=rag_query,
     )
     result = agent.run(ctx)
-    return result.model_dump(mode="json")
+    payload = result.model_dump(mode="json")
+    if rag_metrics is not None:
+        payload["rag"] = rag_metrics.to_public_dict()
+    return payload

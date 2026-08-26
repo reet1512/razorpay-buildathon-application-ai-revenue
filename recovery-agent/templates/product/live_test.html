@@ -1,82 +1,66 @@
 {% extends "base_product.html" %}
-{% block title %}Live Test — Recovery Agent{% endblock %}
+{% block title %}Live — Recovery Agent{% endblock %}
 {% set nav_active = 'live_test' %}
 {% block content %}
-<header class="p-page-header">
-  <nav class="p-breadcrumb"><a href="/ui">Overview</a> / Live Test</nav>
-  <h1 class="p-page-title">Live payment test</h1>
-  <p class="p-page-sub">Simulate a failed payment and watch the recovery agent respond.</p>
-  <span class="p-env-badge">TEST</span>
+<header class="p-page-header j-header">
+  <div>
+    <span class="p-env-badge">Razorpay test</span>
+    <h1 class="p-page-title">Live recovery</h1>
+    <p class="p-page-sub">Same agent stack — then a real test-mode Payment Link via Razorpay API. Match the plink_ id in the dashboard.</p>
+  </div>
 </header>
 
-<section class="p-card">
-  <div class="p-card-head"><h2 class="p-card-title">Interactive sandbox</h2></div>
-  <div class="p-card-body">
-    <div class="p-event-tl" style="max-width:32rem;margin:0 auto 1.5rem">
-      <div class="p-event tone-danger">
-        <p class="p-event-title">Payment failure</p>
-        <p class="p-event-detail">Simulate a failed transaction with a chosen failure reason.</p>
-      </div>
-      <div class="p-event tone-primary">
-        <p class="p-event-title">AI analysis</p>
-        <p class="p-event-detail">Classification, historical memory, and evidence retrieval.</p>
-      </div>
-      <div class="p-event tone-primary">
-        <p class="p-event-title">Recommended strategy</p>
-        <p class="p-event-detail">AI selects the safest recovery action for this failure type.</p>
-      </div>
-      <div class="p-event tone-success">
-        <p class="p-event-title">Expected outcome</p>
-        <p class="p-event-detail">Case created with full audit trail and recovery status.</p>
-      </div>
-    </div>
-
-    <div class="p-form-row" style="max-width:28rem;margin:0 auto">
-      <label for="demo-reason">Failure reason for test case</label>
-      <select id="demo-reason" aria-label="Failure reason">
-        {% for value, label in failure_options %}
-        <option value="{{ value }}" {% if value == default_reason %}selected{% endif %}>{{ label }}</option>
-        {% endfor %}
-      </select>
-    </div>
-
-    <form method="post" action="/ui/demo/ai-case" class="ai-demo-form p-page-actions" style="justify-content:center">
-      <input type="hidden" name="raw_error_reason" class="reason-field" value="{{ default_reason }}" />
-      <input type="hidden" name="create_payment_link" value="1" />
-      <button type="submit" class="p-btn p-btn--primary">Simulate failed payment</button>
-    </form>
-
-    {% if live_plink and live_case_id %}
-    <div class="p-banner p-banner--success p-mt-1" style="max-width:36rem;margin:1rem auto 0">
-      <p class="p-mb-0"><strong>Recovery case created</strong></p>
-      <p class="p-text-muted"><code>{{ live_plink }}</code></p>
-      <a href="/ui/cases/{{ live_case_id }}" class="p-btn" style="margin-top:0.5rem">View case outcome</a>
-    </div>
+<div class="j-payment-card j-payment-card--live">
+  <div>
+    <p class="p-kicker">Failed payment · live edge</p>
+    <p class="j-payment-amount">₹{{ "{:,.2f}".format(demo_amount_inr) }}</p>
+    <p class="p-text-muted">Creates a real <code>plink_</code> after gates pass</p>
+  </div>
+  <div class="j-payment-meta">
+    <span class="p-badge p-badge--warning">API execute</span>
+    {% if rag_enabled %}
+    <span class="p-badge p-badge--success">Inherent RAG</span>
+    {% endif %}
+    {% if ollama_up %}
+    <span class="p-badge p-badge--ai">{{ ollama_model }}</span>
+    {% else %}
+    <span class="p-badge p-badge--fallback">Rules fallback</span>
     {% endif %}
   </div>
-</section>
+</div>
 
-<details class="p-card p-mt-1">
-  <summary class="p-card-head" style="cursor:pointer"><h2 class="p-card-title">Technical setup</h2></summary>
-  <div class="p-card-body">
-    <p class="p-text-muted">Creates a Razorpay test-mode Payment Link. Complete payment in the Razorpay dashboard, or POST a signed <code>payment_link.paid</code> webhook to <code>/webhooks/razorpay</code>.</p>
-    <pre class="p-code">POST /webhooks/razorpay
-Content-Type: application/json
-X-Razorpay-Signature: ...
-
-{ "event": "payment_link.paid", ... }</pre>
+{% if live_plink and live_case_id %}
+<section class="j-last-live">
+  <div>
+    <p class="p-kicker">Last live case</p>
+    <p class="j-last-live__id"><a href="/ui/cases/{{ live_case_id }}">{{ live_case_id }}</a></p>
+    <p class="p-text-muted">
+      {% if live_amount_inr is not none %}₹{{ "{:,.2f}".format(live_amount_inr) }} at risk · {% endif %}
+      Payment Link created — pay in Razorpay test to flip recovered
+    </p>
   </div>
-</details>
+  <div class="j-last-live__plink">
+    <p class="p-kicker">plink_</p>
+    <code>{{ live_plink }}</code>
+  </div>
+</section>
+{% endif %}
 
-<script>
-(function () {
-  var sel = document.getElementById("demo-reason");
-  if (!sel) return;
-  function sync() {
-    document.querySelectorAll(".reason-field").forEach(function (el) { el.value = sel.value; });
-  }
-  sel.addEventListener("change", sync);
-  sync();
-})();
-</script>
+<div class="j-controls">
+  <div class="p-form-row j-controls__field">
+    <label for="demo-reason">Failure reason</label>
+    <select id="demo-reason" aria-label="Failure reason">
+      {% for value, label in failure_options %}
+      <option value="{{ value }}" {% if value == default_reason %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="button" class="p-btn p-btn--primary j-btn-live" id="think-run">Run live Razorpay recovery</button>
+</div>
+
+{% set mode = 'live' %}
+{% include "components/product/_think_runner.html" %}
+{% endblock %}
+{% block extra_scripts %}
+<script src="/static/think.js" data-live="{{ think_live }}" data-mode="live"></script>
 {% endblock %}

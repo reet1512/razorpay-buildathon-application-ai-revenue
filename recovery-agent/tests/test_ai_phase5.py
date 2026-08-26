@@ -62,9 +62,14 @@ def test_fallback_when_ollama_down():
     ctx = build_context(raw_error_reason="card_expired", amount_paise=49900)
     result = agent.run(ctx)
     assert result.used_llm is False
-    assert result.fallback_reason == "ollama_unavailable"
+    assert result.source == "rules_fallback"
+    assert result.fallback_reason == "ollama_unavailable:Ollama health check failed (GET /api/tags)" or result.fallback_reason.startswith(
+        "ollama_unavailable"
+    )
+    assert result.action_validated.proposed_by.value == "rules_fallback"
     assert result.action_validated.verb == ActionVerb.send_payment_link
     assert any(e["actor"] in ("policy", "system", "llm") for e in result.ledger_events)
+    assert result.ledger_events[1]["payload"]["source"] == "rules_fallback"
 
 
 def test_agent_happy_path_mocked_llm_and_validator():
@@ -95,10 +100,13 @@ def test_agent_happy_path_mocked_llm_and_validator():
     ctx = build_context(raw_error_reason="card_expired", amount_paise=49900)
     result = agent.run(ctx)
     assert result.used_llm is True
+    assert result.source == "llm"
+    assert result.action_validated.proposed_by.value == "llm"
     assert result.action_validated.verb == ActionVerb.send_payment_link
     assert result.message is not None
     assert result.ledger_events[0]["actor"] == "llm"
     assert result.ledger_events[0]["kind"] == "classification"
+    assert result.ledger_events[1]["payload"]["source"] == "llm"
 
 
 @pytest.fixture()
@@ -149,3 +157,92 @@ def test_persist_llm_rows_on_ledger(session: Session):
     # message draft may appear as action
     actors = {e.actor for e in trail["ledger"]}
     assert LedgerActor.policy in actors or LedgerActor.llm in actors
+
+
+def test_prompts_include_rag_evidence():
+    from ai.prompts import diagnose_user, propose_user, format_rag_evidence
+
+    evidence = format_rag_evidence(
+        [
+            {
+                "score": 0.88,
+                "failure_reason": "card_expired",
+                "recovery_class": "CUSTOMER_ACTION",
+                "action": "send_payment_link",
+                "outcome": "success",
+                "document_name": "recovery-sim-v1-seed42-case3.txt",
+            }
+        ]
+    )
+    assert "historical_similar_episodes" in evidence
+    assert "send_payment_link" in evidence
+
+    ctx = build_context(
+        raw_error_reason="card_expired",
+        amount_paise=49900,
+        rag_episodes=[
+            {
+                "score": 0.88,
+                "failure_reason": "card_expired",
+                "recovery_class": "CUSTOMER_ACTION",
+                "action": "send_payment_link",
+                "outcome": "success",
+            }
+        ],
+        rag_query="card expired payment recovery",
+    )
+    diag = diagnose_user(ctx)
+    assert "historical_similar_episodes" in diag
+    assert "retrieval_query: card expired payment recovery" in diag
+    prop = propose_user(ctx, {"likely_class": "card_expired", "summary": "x"})
+    assert "send_payment_link" in prop
+
+
+def test_agent_passes_rag_into_llm_user_prompt():
+    seen_users: list[str] = []
+
+    class CaptureLLM(FakeLLM):
+        def chat_json(self, system: str, user: str, *, temperature: float = 0.1) -> dict:
+            seen_users.append(user)
+            return super().chat_json(system, user, temperature=temperature)
+
+    fake = CaptureLLM(
+        [
+            {
+                "summary": "Expired card; similar cases used payment link",
+                "likely_class": "card_expired",
+                "confidence": 0.9,
+                "rationale": "RAG shows link success",
+            },
+            {
+                "verb": "send_payment_link",
+                "day_offset": 0,
+                "channel": "link",
+                "reason_code": "RAG_EVIDENCE",
+                "note": "similar episodes recovered via link",
+            },
+            {
+                "channel": "link",
+                "subject": "Update card",
+                "body": "Please update your payment method.",
+            },
+        ]
+    )
+    agent = RecoveryAgent(client=fake)
+    ctx = build_context(
+        raw_error_reason="card_expired",
+        amount_paise=49900,
+        rag_episodes=[
+            {
+                "score": 0.91,
+                "failure_reason": "card_expired",
+                "action": "send_payment_link",
+                "outcome": "success",
+            }
+        ],
+        rag_query="card card_expired",
+    )
+    result = agent.run(ctx)
+    assert result.used_llm is True
+    assert any("historical_similar_episodes" in u for u in seen_users)
+    assert ctx.rag_episodes[0]["action"] == "send_payment_link"

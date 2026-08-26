@@ -8,11 +8,13 @@ Teaching:
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
 
 from policy.schemas import Action, ActionVerb, Channel, DecisionBundle
+
+AgentSource = Literal["llm", "rules_fallback"]
 
 
 class CaseContext(BaseModel):
@@ -38,6 +40,9 @@ class CaseContext(BaseModel):
     tenure_days: int = 0
     allowed_classes: list[str] = Field(default_factory=list)
     allowed_verbs: list[str] = Field(default_factory=list)
+    # De-identified Inherent retrieval snippets for LLM reference (no PII).
+    rag_episodes: list[dict[str, Any]] = Field(default_factory=list)
+    rag_query: Optional[str] = None
 
 
 class Diagnosis(BaseModel):
@@ -51,6 +56,8 @@ class MessageDraft(BaseModel):
     channel: Channel = Channel.link
     subject: str = ""
     body: str
+    # Copy provenance — canned templates must never look like LLM copy.
+    source: Literal["llm", "canned_fallback"] = "llm"
 
 
 class ProposalPayload(BaseModel):
@@ -71,6 +78,8 @@ class AgentRunResult(BaseModel):
     proposal_raw: Optional[ProposalPayload] = None
     action_validated: Action
     message: Optional[MessageDraft] = None
+    # Canonical provenance: never treat rules_fallback as an LLM proposal.
+    source: AgentSource
     used_llm: bool
     fallback_reason: Optional[str] = None
     decision_rules: Optional[DecisionBundle] = None

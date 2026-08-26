@@ -8,7 +8,7 @@ import pytest
 
 from memory.rag import RagMetrics, build_retrieval_query, probe_platform_rag
 from memory.schemas import RetrievalResult
-from api.ui_helpers import platform_metrics, build_case_view, recover_demo_context
+from api.ui_helpers import platform_metrics, rag_status_payload, build_case_view, recover_demo_context
 
 
 def test_build_retrieval_query_includes_failure_and_class():
@@ -21,8 +21,10 @@ def test_build_retrieval_query_includes_failure_and_class():
 def test_platform_metrics_disabled_when_not_configured(monkeypatch):
     monkeypatch.setenv("INHERENT_ENABLED", "false")
     monkeypatch.delenv("INHERENT_API_KEY", raising=False)
-    m = platform_metrics(None, {})
+    with patch("api.ui_helpers.probe_inherent_health", return_value=False):
+        m = platform_metrics(None, {})
     assert m["rag_enabled"] is False
+    assert m["rag_online"] is False
     assert m["rag_label"] == "RAG DISABLED"
     assert m["similar_cases"] == 0
 
@@ -37,9 +39,13 @@ def test_platform_metrics_active_from_probe(monkeypatch):
         retrieval_latency_ms=184.2,
         top_similarity_score=0.76,
     )
-    with patch("api.ui_helpers.probe_platform_rag", return_value=fake):
+    with (
+        patch("api.ui_helpers.probe_platform_rag", return_value=fake),
+        patch("api.ui_helpers.probe_inherent_health", return_value=True),
+    ):
         m = platform_metrics(None, {})
     assert m["rag_enabled"] is True
+    assert m["rag_online"] is True
     assert m["rag_label"] == "RAG ACTIVE"
     assert m["similar_cases"] == 12
     assert m["retrieval_latency_ms"] == 184.2
@@ -54,12 +60,36 @@ def test_platform_metrics_unavailable(monkeypatch):
         available=False,
         error="inherent_search_timeout",
     )
-    with patch("api.ui_helpers.probe_platform_rag", return_value=fake):
+    with (
+        patch("api.ui_helpers.probe_platform_rag", return_value=fake),
+        patch("api.ui_helpers.probe_inherent_health", return_value=False),
+    ):
         m = platform_metrics(None, {})
     assert m["rag_enabled"] is False
+    assert m["rag_online"] is False
     assert m["rag_configured"] is True
     assert m["rag_available"] is False
     assert m["rag_label"] == "RAG UNAVAILABLE"
+
+
+def test_rag_status_online_when_health_ok_search_down(monkeypatch):
+    monkeypatch.setenv("INHERENT_ENABLED", "true")
+    monkeypatch.setenv("INHERENT_API_KEY", "ink_test")
+    fake = RagMetrics(
+        enabled=True,
+        available=False,
+        error="inherent_search_timeout",
+    )
+    with (
+        patch("api.ui_helpers.probe_platform_rag", return_value=fake),
+        patch("api.ui_helpers.probe_inherent_health", return_value=True),
+    ):
+        m = rag_status_payload(force=True)
+    assert m["rag_online"] is True
+    assert m["rag_enabled"] is False
+    assert m["rag_healthy"] is True
+    assert m["rag_label"] == "RAG ONLINE"
+    assert m["similar_cases"] == 0
 
 
 def test_build_case_view_with_rag_ledger():

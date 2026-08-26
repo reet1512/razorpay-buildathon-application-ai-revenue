@@ -147,10 +147,10 @@ class PolicyEngine:
                 )
             ]
 
-        # Dead / contact verbs: single contact action, zero retries.
+        # Dead / contact verbs: primary fix path + one delayed follow-up link.
         if verb in {ActionVerb.send_payment_link, ActionVerb.request_mandate_update}:
             channel = Channel.link if allow_contact else Channel.none
-            return [
+            actions = [
                 Action(
                     verb=verb,
                     channel=channel,
@@ -164,6 +164,22 @@ class PolicyEngine:
                     note="dead_instrument_fix_path",
                 )
             ]
+            if allow_contact:
+                actions.append(
+                    Action(
+                        verb=ActionVerb.send_payment_link,
+                        channel=Channel.link,
+                        amount_paise=amount_paise,
+                        reason_code=reason_code,
+                        policy_version=self.policy_version,
+                        proposed_by=proposed_by,
+                        failure_class=failure_class,
+                        score=score,
+                        day_offset=3,
+                        note="dead_instrument_followup_link",
+                    )
+                )
+            return actions
 
         # Retries (+ optional later link for ambiguous spaced_then_link).
         offsets = timing_mod.offsets_for_timing(
@@ -307,6 +323,12 @@ def get_engine() -> PolicyEngine:
     if _engine is None:
         _engine = PolicyEngine()
     return _engine
+
+
+def reset_engine() -> None:
+    """Clear cached engine (tests / after taxonomy hot-reload)."""
+    global _engine
+    _engine = None
 
 
 def policy_ours_from_taxonomy(case) -> list:

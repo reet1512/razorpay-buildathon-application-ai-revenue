@@ -58,7 +58,8 @@ def sample_hidden_truth(
             instrument_valid=False,
             true_credit_day=credit_day,
             natural_recovery_prob=0.02,
-            base_contact_response_prob=0.35,  # link/update can still save them
+            # Industry: one-click update / pay links convert well on dead instruments.
+            base_contact_response_prob=0.58,
             retry_success_if_funded=0.0,
         )
 
@@ -76,17 +77,18 @@ def sample_hidden_truth(
             instrument_valid=True,
             true_credit_day=credit_day,
             natural_recovery_prob=0.08,
-            base_contact_response_prob=0.25,
-            retry_success_if_funded=0.88,
+            base_contact_response_prob=0.22,
+            # High success when retry lands inside the salary window.
+            retry_success_if_funded=0.92,
         )
 
     if reason in {FailureReason.issuer_transient, FailureReason.gateway_timeout}:
         return HiddenPayerTruth(
             instrument_valid=True,
             true_credit_day=credit_day,
-            natural_recovery_prob=0.20,
-            base_contact_response_prob=0.15,
-            retry_success_if_funded=0.80,
+            natural_recovery_prob=0.18,
+            base_contact_response_prob=0.12,
+            retry_success_if_funded=0.86,
         )
 
     # do_not_honour and anything else: ambiguous
@@ -94,8 +96,8 @@ def sample_hidden_truth(
         instrument_valid=True,
         true_credit_day=credit_day,
         natural_recovery_prob=0.10,
-        base_contact_response_prob=0.20,
-        retry_success_if_funded=0.45,
+        base_contact_response_prob=0.28,
+        retry_success_if_funded=0.48,
     )
 
 

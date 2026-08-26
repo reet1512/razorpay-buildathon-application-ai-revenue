@@ -1,0 +1,78 @@
+{
+  "matched": 0,
+  "total": 6,
+  "rows": [
+    {
+      "query": "UPI temporary bank failure retry fixable",
+      "expect": "RETRY_FIXABLE",
+      "hits": 8,
+      "class_dist": {
+        "unknown": 8
+      },
+      "top_class": "unknown",
+      "top_failure": null,
+      "top_action": null,
+      "ok": false
+    },
+    {
+      "query": "card expired customer action send payment link",
+      "expect": "CUSTOMER_ACTION",
+      "hits": 8,
+      "class_dist": {
+        "unknown": 8
+      },
+      "top_class": "unknown",
+      "top_failure": null,
+      "top_action": null,
+      "ok": false
+    },
+    {
+      "query": "mandate revoked customer action",
+      "expect": "CUSTOMER_ACTION",
+      "hits": 8,
+      "class_dist": {
+        "unknown": 8
+      },
+      "top_class": "unknown",
+      "top_failure": null,
+      "top_action": null,
+      "ok": false
+    },
+    {
+      "query": "do not honour ambiguous payment",
+      "expect": "AMBIGUOUS",
+      "hits": 8,
+      "class_dist": {
+        "unknown": 8
+      },
+      "top_class": "unknown",
+      "top_failure": null,
+      "top_action": null,
+      "ok": false
+    },
+    {
+      "query": "fraud risk prohibited recovery escalate",
+      "expect": "PROHIBITED",
+      "hits": 8,
+      "class_dist": {
+        "unknown": 8
+      },
+      "top_class": "unknown",
+      "top_failure": null,
+      "top_action": null,
+      "ok": false
+    },
+    {
+      "query": "gateway timeout retry fixable",
+      "expect": "RETRY_FIXABLE",
+      "hits": 8,
+      "class_dist": {
+        "unknown": 8
+      },
+      "top_class": "unknown",
+      "top_failure": null,
+      "top_action": null,
+      "ok": false
+    }
+  ]
+}

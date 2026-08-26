@@ -1,0 +1,103 @@
+{% set mode = mode|default('sim') %}
+{% set think_steps = [
+  {"key": "ingest", "num": "01", "title": "Ingest"},
+  {"key": "memory", "num": "02", "title": "RAG memory"},
+  {"key": "agent", "num": "03", "title": "Agentic reasoning"},
+  {"key": "safety", "num": "04", "title": "Safety gates"},
+  {"key": "action", "num": "05", "title": "Razorpay API" if mode == "live" else "Sim execute"},
+] %}
+<div class="j-pipeline {{ 'j-pipeline--live' if mode == 'live' else 'j-pipeline--sim' }}">
+  <div class="p-grid-2 p-grid-2--wide">
+    <div class="j-pipeline-col">
+      <p class="j-section-label">Pipeline</p>
+      <div class="p-timeline" id="think-timeline" role="list">
+        {% for step in think_steps %}
+        <div class="p-tl-step is-waiting" data-step="{{ step.key }}" role="listitem">
+          <div class="p-tl-dot" aria-hidden="true">
+            <span class="p-tl-dot__num">{{ step.num }}</span>
+            <span class="p-tl-dot__icon" hidden></span>
+          </div>
+          <div class="p-tl-body">
+            <div class="p-tl-head">
+              <p class="p-tl-title">{{ step.num }} · {{ step.title }}</p>
+              <span class="p-tl-state" data-state="waiting">Waiting</span>
+            </div>
+            <p class="p-tl-summary p-text-muted">Idle</p>
+            <p class="p-tl-detail" hidden></p>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="p-stack j-live-windows">
+      <p class="j-section-label">Live windows</p>
+
+      <section class="p-card j-window" id="win-rag">
+        <div class="p-card-head">
+          <h2 class="p-card-title">Retrieved memory</h2>
+          <span class="p-badge p-badge--muted" id="rag-count-badge">0 chunks</span>
+        </div>
+        <div class="p-card-body j-window-body" id="rag-chunks">
+          <p class="p-text-muted p-mb-0 j-window-empty">Waiting for Inherent retrieval…</p>
+        </div>
+      </section>
+
+      <section class="p-card j-window" id="win-agent">
+        <div class="p-card-head">
+          <h2 class="p-card-title">Agent reasoning</h2>
+          <span class="p-badge p-badge--muted j-source-badge" id="agent-source-badge">Awaiting proposal</span>
+        </div>
+        <div class="j-source-banner" id="agent-source-banner" hidden></div>
+        <div class="p-card-body j-window-body" id="agent-reasoning">
+          <p class="p-text-muted p-mb-0 j-window-empty">Waiting for diagnose + propose…</p>
+        </div>
+      </section>
+
+      <section class="p-card j-window" id="win-safety">
+        <div class="p-card-head">
+          <h2 class="p-card-title">Safety checks</h2>
+          <span class="p-badge p-badge--muted" id="safety-count-badge">0 / 0</span>
+        </div>
+        <div class="p-card-body">
+          <ul class="j-gate-list" id="safety-list">
+            <li class="p-text-muted">Gates run after the agent proposes an action.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="p-card j-window j-window--money" id="win-money" hidden>
+        <div class="p-card-head">
+          <h2 class="p-card-title">Money outcome</h2>
+          <span class="p-badge p-badge--success" id="think-status-badge">Ready</span>
+        </div>
+        <div class="p-card-body">
+          <div class="j-outcome-source" id="think-source-row" hidden>
+            <span class="p-badge j-source-badge" id="think-source-badge">—</span>
+          </div>
+          <p class="p-kicker">Recommendation</p>
+          <p class="p-decision-action" id="think-verb">—</p>
+          <p class="p-text-muted" id="think-why"></p>
+          <div class="j-money-row">
+            <div>
+              <p class="p-metric-label">At risk</p>
+              <p class="j-money j-money--ours" id="think-at-risk">—</p>
+            </div>
+            <div>
+              <p class="p-metric-label">Recovered / status</p>
+              <p class="j-recovery-line" id="think-recovery">—</p>
+            </div>
+          </div>
+          <dl class="j-case-grid" id="think-case-grid">
+            <div><dt>Case</dt><dd id="think-case-id">—</dd></div>
+            <div><dt>Confidence</dt><dd id="think-confidence">—</dd></div>
+            <div><dt>Failure</dt><dd id="think-failure">—</dd></div>
+            <div><dt>Source</dt><dd id="think-model">—</dd></div>
+            <div class="j-case-grid__wide" id="think-plink-row" hidden><dt>Payment Link</dt><dd><code id="think-plink">—</code></dd></div>
+          </dl>
+          <a class="p-btn p-btn--primary" id="think-case" href="#">Open case trail</a>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>

@@ -10,7 +10,13 @@ from typing import Any, Optional
 
 from eval.recovery_class import RecoveryClass, recovery_class_for
 from eval.types import FailureReason
-from memory.rag import RagMetrics, extract_case_rag, is_rag_configured, probe_platform_rag
+from memory.rag import (
+    RagMetrics,
+    extract_case_rag,
+    is_rag_configured,
+    probe_inherent_health,
+    probe_platform_rag,
+)
 
 # Gate display names (matches guard/gates.py order)
 GATE_LABELS: dict[str, str] = {
@@ -54,6 +60,26 @@ def inherent_enabled() -> bool:
     return is_rag_configured()
 
 
+def corpus_counts() -> dict[str, int]:
+    """Local seeder manifest counts (corpus size), not search top-k."""
+    try:
+        from memory.manifest import MemoryManifest
+
+        m = MemoryManifest()
+        d = m.data
+        return {
+            "corpus_expected": int(d.get("expected_episodes") or 0),
+            "corpus_uploaded": int(d.get("uploaded") or 0),
+            "corpus_completed": int(d.get("completed") or 0),
+        }
+    except Exception:
+        return {
+            "corpus_expected": 0,
+            "corpus_uploaded": 0,
+            "corpus_completed": 0,
+        }
+
+
 def _format_latency_ms(ms: Optional[float]) -> Optional[str]:
     if ms is None:
         return None
@@ -73,25 +99,83 @@ def _platform_rag_metrics() -> RagMetrics:
         )
 
 
-def platform_metrics(run, by_label: dict) -> dict[str, Any]:
-    """Landing-page metrics row — real probe data when Inherent is available."""
-    ours = by_label.get("ours") if by_label else None
-    rag = _platform_rag_metrics()
-    active = rag.enabled and rag.available
+def rag_status_payload(*, force: bool = True) -> dict[str, Any]:
+    """
+    Live RAG snapshot for Stats polling.
+
+    Online when configured and either Public API /health is OK or search probe works.
+    Episodes / latency only from a successful search probe (no fabricated metrics).
+    """
+    configured = is_rag_configured()
+    healthy = False
+    try:
+        healthy = probe_inherent_health() if configured else False
+    except Exception:
+        healthy = False
+
+    if force:
+        try:
+            rag = probe_platform_rag(force=True)
+        except Exception:
+            rag = RagMetrics(
+                enabled=configured,
+                available=False,
+                error="probe_failed",
+            )
+    else:
+        rag = _platform_rag_metrics()
+
+    active = bool(rag.enabled and rag.available)
+    online = bool(configured and (active or healthy))
+    if active:
+        label = rag.status_label  # RAG ACTIVE
+    elif online:
+        label = "RAG ONLINE"
+    elif configured:
+        label = rag.status_label  # RAG UNAVAILABLE
+    else:
+        label = "RAG DISABLED"
+
+    corpus = corpus_counts()
     return {
-        "net_recovered_inr": ours.net_recovered_inr if ours else None,
-        "recovery_rate_pct": round(ours.recovery_rate * 100, 1) if ours else None,
+        "rag_configured": configured,
+        "rag_healthy": healthy,
+        "rag_available": rag.available,
+        "rag_enabled": active,
+        "rag_online": online,
+        "rag_provider": rag.provider,
+        "rag_label": label,
+        "rag_error": rag.error,
         "similar_cases": rag.similar_cases if active else 0,
         "retrieval_latency_ms": rag.retrieval_latency_ms if active else None,
         "retrieval_latency_label": _format_latency_ms(rag.retrieval_latency_ms)
         if active
         else None,
-        "rag_enabled": active,
-        "rag_configured": rag.enabled,
-        "rag_available": rag.available,
-        "rag_provider": rag.provider,
-        "rag_label": rag.status_label,
-        "rag_error": rag.error,
+        **corpus,
+    }
+
+
+def platform_metrics(run, by_label: dict) -> dict[str, Any]:
+    """Landing-page metrics row — real probe data when Inherent is available."""
+    ours = by_label.get("ours") if by_label else None
+    live = rag_status_payload(force=False)
+    return {
+        "net_recovered_inr": ours.net_recovered_inr if ours else None,
+        "recovery_rate_pct": round(ours.recovery_rate * 100, 1) if ours else None,
+        "similar_cases": live["similar_cases"],
+        "retrieval_latency_ms": live["retrieval_latency_ms"],
+        "retrieval_latency_label": live["retrieval_latency_label"],
+        "rag_enabled": live["rag_enabled"],
+        "rag_online": live["rag_online"],
+        "rag_configured": live["rag_configured"],
+        "rag_available": live["rag_available"],
+        "rag_healthy": live["rag_healthy"],
+        "rag_provider": live["rag_provider"],
+        "rag_label": live["rag_label"],
+        "rag_error": live["rag_error"],
+        "corpus_expected": live.get("corpus_expected", 0),
+        "corpus_uploaded": live.get("corpus_uploaded", 0),
+        "corpus_completed": live.get("corpus_completed", 0),
         "has_eval_run": ours is not None,
     }
 

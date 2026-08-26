@@ -20,22 +20,43 @@ def salary_window_offsets(
     """
     NSF / time-shiftable: prefer days near salary credit.
 
-    If we have observed_credit_day, aim there (and +1).
-    Else use a conservative 3 and 6 day wait.
+    If we have observed_credit_day, aim there (and nearby days).
+    Else cover the common Indian salary cluster (days 1–7) with
+    several offsets from failure_dom so we still hit a funded day.
     """
     if observed_credit_day is None:
-        return [3, 6]
+        # No hint — fan out across likely payday cluster relative to failure.
+        candidates = []
+        for target in (1, 2, 3, 5, 7):
+            delta = (target - failure_dom) % 28
+            if delta == 0:
+                delta = 1
+            if delta not in candidates:
+                candidates.append(delta)
+        return sorted(candidates)[:4]
 
     delta = (observed_credit_day - failure_dom) % 28
     if delta == 0:
         # Failed on credit day already — don't retry the same empty moment.
         delta = 1
-    return [delta, delta + 1]
+    # Cover credit day and the two following funded days in the payer model.
+    offs = [delta, delta + 1, delta + 2]
+    # Small early probe if the wait is long (funds sometimes clear early).
+    if delta >= 4:
+        offs.insert(0, max(1, delta // 2))
+    # Dedupe preserve order
+    seen: set[int] = set()
+    out: list[int] = []
+    for o in offs:
+        if o not in seen and o >= 0:
+            seen.add(o)
+            out.append(o)
+    return out
 
 
 def short_backoff_offsets() -> list[int]:
-    """Transient: retry same/next day (sim granularity is days)."""
-    return [0]
+    """Transient: retry same day and next day (sim granularity is days)."""
+    return [0, 1]
 
 
 def immediate_contact_offsets() -> list[int]:

@@ -12,7 +12,7 @@
 #   stop            -> do not automate money movement; escalate human
 #   ambiguous       -> careful single retry + optional link
 
-version: "2026-08-21-phase4"
+version: "2026-08-26-metrics-s1"
 
 classes:
   insufficient_funds:
@@ -20,30 +20,30 @@ classes:
     recovery_class: RETRY_FIXABLE
     default_verb: schedule_retry
     allow_contact: false
-    max_retries: 2
+    max_retries: 4
     timing: salary_window
     reason_code: NSF_SALARY_WINDOW
-    notes: "Wait for salary-like credit window; do not spam."
+    notes: "Wait for salary-like credit window; do not spam. Up to 4 silent retries."
 
   issuer_transient:
     category: transient
     recovery_class: RETRY_FIXABLE
     default_verb: schedule_retry
     allow_contact: false
-    max_retries: 1
+    max_retries: 2
     timing: short_backoff
     reason_code: TRANSIENT_QUICK_RETRY
-    notes: "Bank/PSP blip — retry soon, stay quiet."
+    notes: "Bank/PSP blip — retry day 0 and day 1, stay quiet."
 
   gateway_timeout:
     category: transient
     recovery_class: RETRY_FIXABLE
     default_verb: schedule_retry
     allow_contact: false
-    max_retries: 1
+    max_retries: 2
     timing: short_backoff
     reason_code: TIMEOUT_RECONCILE_RETRY
-    notes: "In production: reconcile status before retry. Sim: short retry."
+    notes: "In production: reconcile status before retry. Sim: day 0 + day 1."
 
   card_expired:
     category: dead
@@ -53,7 +53,7 @@ classes:
     max_retries: 0
     timing: immediate_contact
     reason_code: DEAD_CARD_LINK
-    notes: "Zero retries. One update/pay link."
+    notes: "Zero retries. One update/pay link (follow-up link via engine note)."
 
   token_invalid:
     category: dead
@@ -73,7 +73,7 @@ classes:
     max_retries: 0
     timing: immediate_contact
     reason_code: DEAD_MANDATE_UPDATE
-    notes: "Never debit a revoked mandate. Offer re-mandate once."
+    notes: "Never debit a revoked mandate. Offer re-mandate once (+ follow-up)."
 
   risk_fraud:
     category: stop
