@@ -101,7 +101,7 @@ pip install -r requirements.txt
 cp .env.example .env             # Windows: copy .env.example .env
 
 pytest -q                        # 154 tests, no external services needed
-python eval/harness.py --benchmark --seed 42 --n 500
+python -m eval.harness --benchmark --seed 42 --n 500
 uvicorn main:app --reload --port 8000
 ```
 

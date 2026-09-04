@@ -34,7 +34,7 @@ Verify — all three should pass with no external services running:
 ```bash
 pytest -q                                            # expect: 154 passed
 python scripts/check_no_secrets.py                   # expect: secret check ok
-python eval/harness.py --benchmark --seed 42 --n 500
+python -m eval.harness --benchmark --seed 42 --n 500
 ```
 
 The benchmark prints the headline comparison. It is deterministic: seed 42 gives
@@ -235,10 +235,16 @@ offline alternative.
 **Stats page shows an em dash instead of money.** No evaluation run is stored yet.
 Run one (see Tier 0). This is intended behaviour, not a failure.
 
-**`ModuleNotFoundError: No module named 'eval'`.** You are running `python -m
-eval.harness` under a Python whose `._pth` excludes the working directory (the
-bundled Windows embeddable runtime does this). Use the script form:
-`python eval/harness.py --benchmark --seed 42 --n 500`.
+**Benchmark commands.** Run them from `recovery-agent/` with `-m`:
+`python -m eval.harness --benchmark --seed 42 --n 500`. The script form
+(`python eval/harness.py`) also works, but only because the file repairs
+`sys.path` on the way in — `eval/types.py` otherwise shadows the stdlib `types`
+module and stdlib `enum` fails to import. Prefer `-m`.
+
+**`ModuleNotFoundError: No module named 'eval'`.** You are not in the
+`recovery-agent/` directory, or you are on a Python whose `._pth` excludes the
+working directory (the Windows embeddable build does this; a normal install and a
+venv do not).
 
 **`pytest` fails on a fresh clone.** It should not — the suite passes in default
 and reverse order with no external services. If it does, please note the ordering;

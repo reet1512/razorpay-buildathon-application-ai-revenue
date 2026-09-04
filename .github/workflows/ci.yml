@@ -48,4 +48,4 @@ jobs:
         # this fails and the docs get fixed instead of silently going stale.
         # Script form (not -m) so the same command works under the bundled
         # Windows embeddable runtime, whose ._pth excludes the CWD.
-        run: python eval/harness.py --benchmark --seed 42 --n 500
+        run: python -m eval.harness --benchmark --seed 42 --n 500

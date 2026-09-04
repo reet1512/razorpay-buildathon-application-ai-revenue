@@ -124,3 +124,39 @@ with it.
 found it by hand — the local environment had silently accumulated the state the
 test depended on. "Works on my machine" was literally true and completely
 misleading.
+
+## 10. The documented benchmark command did not run on a normal Python
+
+**Broke:** the next CI run got past lint, tests, and the secret scan, then died on
+the benchmark step with:
+
+```
+ImportError: cannot import name 'Enum' from partially initialized module 'enum'
+(most likely due to a circular import)
+```
+
+`eval/types.py` shadows the stdlib `types` module. Running `python eval/harness.py`
+puts `eval/` at `sys.path[0]`, so when stdlib `enum` does its own `import types`
+during initialisation it gets ours instead, which imports `enum` right back.
+`import argparse` was enough to trigger it. The `sys.path` repair already in
+`harness.py` sat *below* that import, so it never got the chance to run.
+
+This one is embarrassing in a useful way: we had switched the docs and CI **to**
+the script form precisely because `python -m eval.harness` fails under the Windows
+embeddable runtime (§1). That runtime resolves its stdlib from `python312.zip`
+earlier on the path, so the shadowing never bit locally. We had optimised the
+public instructions for our own broken toolchain, and the headline reproducibility
+command — the one command a reviewer is most likely to run — did not work on a
+normal Python install.
+
+**Got out:** `-m eval.harness` everywhere in CI and the docs, which is the
+idiomatic form and puts the project root on the path itself. Separately moved the
+`sys.path` repair in `harness.py` above the stdlib imports, using only `sys` and
+`os`, so the script form works too rather than failing with a message that looks
+like a corrupt checkout. Verified both forms against a stock Python 3.14: they now
+print identical numbers.
+
+**Lesson:** naming a module `types.py` inside a directory that ever lands on
+`sys.path[0]` is a trap. More importantly, a local workaround had quietly become
+the documented path for everyone else — CI on a clean machine was the only thing
+that could have told us.

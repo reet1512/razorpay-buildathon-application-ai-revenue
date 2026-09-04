@@ -16,14 +16,31 @@ Teaching:
 
 from __future__ import annotations
 
+# This block must stay above the stdlib imports below.
+#
+# Running this file as a script (python eval/harness.py) puts eval/ at
+# sys.path[0], and eval/types.py then shadows the stdlib types module. Because
+# stdlib enum imports types while initialising itself, importing argparse blows
+# up with a circular-import error before any of our code gets to run. Pointing
+# sys.path[0] at the project root instead fixes that and makes the eval.*
+# imports below resolve. Only sys and os are touched here; both are already
+# loaded at interpreter startup, so neither can trip the same shadowing.
+#
+# python -m eval.harness does not need this, since -m puts the project root on
+# the path itself. That is the documented invocation; this just keeps the script
+# form from failing in a way that looks like a broken checkout.
+import os
+import sys
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_ROOT = os.path.dirname(_HERE)
+if sys.path and os.path.abspath(sys.path[0]) == _HERE:
+    sys.path[0] = _ROOT
+elif _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+
 import argparse
 import json
-import sys
-from pathlib import Path
-
-_ROOT = Path(__file__).resolve().parents[1]
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
 
 from eval.baselines import POLICIES
 from eval.batch import generate_batch, summarize_mix

@@ -39,8 +39,9 @@ That directory is **gitignored and not part of this repository** — if you see
 
 One quirk worth knowing if you ever reproduce that setup: the embeddable
 runtime's `._pth` excludes the working directory, so `python -m eval.harness`
-fails and you need the script form `python eval/harness.py`. CI uses the script
-form for that reason. Full story: [docs/WHAT_BROKE.md](docs/WHAT_BROKE.md) §1.
+fails there and you need the script form `python eval/harness.py`. That quirk is
+specific to the embeddable runtime — on a normal Python install, use `-m`. Full
+story: [docs/WHAT_BROKE.md](docs/WHAT_BROKE.md) §1 and §10.
 </details>
 
 ## Verify
@@ -48,7 +49,7 @@ form for that reason. Full story: [docs/WHAT_BROKE.md](docs/WHAT_BROKE.md) §1.
 ```bash
 pytest -q                                          # 154 tests, no external deps
 python scripts/check_no_secrets.py                 # no live-looking keys in source
-python eval/harness.py --benchmark --seed 42 --n 500
+python -m eval.harness --benchmark --seed 42 --n 500
 ```
 
 The benchmark is deterministic: same seed, same numbers, on any machine. CI runs
