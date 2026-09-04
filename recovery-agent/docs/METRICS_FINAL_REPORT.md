@@ -5,6 +5,20 @@
 **Seed:** 42 (canonical)  
 **Status:** Executed S0–S5, S7–S8 (S6 ablation deferred)
 
+> **Every number in this report is a simulation output**, produced by our own
+> seeded payer model under assumptions we chose — not a production or industry
+> measurement. The "targets" below were internal goals for a simulator, not
+> benchmarks against real dunning performance.
+>
+> Two further caveats a reader should carry into every table:
+> - **The LLM produced none of these numbers.** The batch path is deterministic
+>   taxonomy rules ([LIMITATIONS.md](LIMITATIONS.md) §3.1).
+> - **`wasted attempts 0 vs 258` is definitional**, not a discovered result: a
+>   wasted attempt is *defined* as a retry against a dead instrument, and our
+>   taxonomy forbids those ([LIMITATIONS.md](LIMITATIONS.md) §2.3).
+>
+> Read [LIMITATIONS.md](LIMITATIONS.md) §2 before quoting anything here.
+
 ---
 
 ## 1. Executive summary
@@ -21,7 +35,13 @@
 
 **Headline for judges**
 
-> On seed **42** / **n=500** identical batch: Ours recovers **74.7%** of at-risk INR vs B2 **59.8%**, net advantage **+₹107,137**, with **0** wasted retries on dead instruments vs **258** for B2.
+> In simulation, on seed **42** / **n=500** identical batch: Ours recovers **74.7%**
+> of at-risk INR vs B2 **59.8%**, net advantage **+₹107,137**.
+>
+> This ranks two policies inside our simulator under stated assumptions. It is not
+> merchant lift, and roughly 99% of the gross edge comes from a single failure
+> reason whose timing our policy and our simulator agree about
+> ([LIMITATIONS.md](LIMITATIONS.md) §2.1).
 
 ---
 
@@ -103,7 +123,8 @@ From `artifacts/metrics_post_s1s2_seed42.json`:
 ### S8 — Docs / tests
 - METHODOLOGY updated with priors + timing
 - This final report
-- Regression: **44** policy/eval/RAG/AI tests passed
+- Regression: **44** policy/eval/RAG/AI tests passed *(count at the time of this
+  sprint; the suite is now **154** tests)*
 
 ---
 
@@ -111,10 +132,14 @@ From `artifacts/metrics_post_s1s2_seed42.json`:
 
 ```text
 cd recovery-agent
-..\tools\python.cmd -u scripts\sprint_metrics.py metrics_post_s1s2_seed42.json
-..\tools\python.cmd eval\harness.py --benchmark --seed 42 --n 500
+python -u scripts/sprint_metrics.py metrics_post_s1s2_seed42.json
+python -m eval.harness --benchmark --seed 42 --n 500
 # UI: http://127.0.0.1:8000/ui  → seed 42, N=500 → Run evaluation
 ```
+
+*(Commands updated: the original run used a gitignored local `tools\python.cmd`
+shim that is not part of the repository, and the script form `eval\harness.py`
+fails on a standard Python — see [WHAT_BROKE.md](WHAT_BROKE.md) §10.)*
 
 Winner formula unchanged: higher `net_recovered_inr` ([`SCORING.md`](SCORING.md)).
 

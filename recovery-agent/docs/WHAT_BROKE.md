@@ -15,8 +15,9 @@ what the README and CI both use.
 
 **Aftertaste:** the embeddable runtime's `._pth` excludes the working directory,
 so `python -m eval.harness` raises `ModuleNotFoundError: No module named 'eval'`
-while `python eval/harness.py` works (the script inserts its own path). Commands
-in docs and CI use the script form so they work under both runtimes.
+there, while `python eval/harness.py` works. We initially switched docs and CI to
+the script form for that reason — which turned out to be exactly the wrong call,
+because the script form is broken on a *normal* Python install. See §10.
 
 ## 2. OneDrive / editor locking plan files
 
@@ -35,7 +36,7 @@ slow or offline.
 **Got out:** Split the paths. `eval.harness --policy ours` uses taxonomy rules and
 is deterministic; `/agent/run` uses the live model with a `rules_fallback` exit.
 The cost of this split — no rupee-denominated AI claim — is recorded in
-[LIMITATIONS.md](LIMITATIONS.md) §9.
+[LIMITATIONS.md](LIMITATIONS.md) §3.1.
 
 ## 4. Webhook without a public URL
 
@@ -85,7 +86,7 @@ remembering to. Fingerprint composition moved into a single shared helper so the
 live path and the ledger replay cannot drift apart.
 
 **Still open:** it is check-then-act, so a true concurrent race remains. See
-[LIMITATIONS.md](LIMITATIONS.md) §11.
+[LIMITATIONS.md](LIMITATIONS.md) §4.1.
 
 ## 8. A green test suite that was red on a clean clone
 

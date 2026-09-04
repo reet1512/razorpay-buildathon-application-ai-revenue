@@ -3,8 +3,29 @@
 
 **Track:** 03 - AI Revenue Recovery  
 **Builder:** Solo + Cursor  
-**Calendar:** 15 days | MVP by Day 7 | Days 8-15 = proof + submission  
-**Source of truth:** this file
+**Calendar:** 15 days | MVP by Day 7 | Days 8-15 = proof + submission
+
+---
+
+> ## ⚠️ Historical planning document
+>
+> This is the **original plan**, kept for provenance. It is *not* a description of
+> what was built, and some of it was deliberately not built.
+>
+> **Source of truth for current state:** [`README.md`](README.md) and
+> [`recovery-agent/docs/LIMITATIONS.md`](recovery-agent/docs/LIMITATIONS.md).
+>
+> Notable divergences, so nothing here is mistaken for a claim:
+> - **"Measure AI impact" / the AI-vs-rules ablation was never run.** There is no
+>   rupee-denominated AI claim in this project. The headline batch benchmark uses
+>   deterministic taxonomy rules and does not invoke the LLM (LIMITATIONS §3.1,
+>   §3.3).
+> - **Gate count:** the plan says "ship 5" gates; the code ships **six**
+>   (`prohibited_recovery` was added).
+> - **`reconcile_then_retry`** is not a taxonomy verb. Reconciliation is adapter
+>   logic on the Razorpay path only, not universal behaviour (LIMITATIONS §4.3).
+> - **Production framing** in this document is aspirational. The delivered system
+>   has no API auth, no migrations, and SQLite (LIMITATIONS §6).
 
 ---
 

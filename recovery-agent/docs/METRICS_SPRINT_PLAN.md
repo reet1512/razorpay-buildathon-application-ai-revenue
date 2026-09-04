@@ -18,7 +18,13 @@
 | **Wasted attempts (Ours)** | Retries on `CUSTOMER_ACTION` | High gap vs B2 already | Keep **near-zero** |
 | **Cost / ₹ recovered** | `total_cost / gross` | Slightly better than B2 | Clear win vs B2 |
 
-**Hard constraint:** Recovery rate **cannot** be 780%. It is a fraction of at-risk INR (ceiling ≈ 100%). Industry best-in-class failed-payment recovery is ~70–85%. The plan targets **~78%**, not 780%.
+**Hard constraint:** Recovery rate **cannot** be 780%. It is a fraction of at-risk INR (ceiling ≈ 100%). The plan targets **~78%**, not 780%.
+
+> **Retrospective note.** The original text here compared the target against an
+> "industry best-in-class ~70–85%" range. That comparison should not be read as a
+> claim of parity: the target was a knob on **our own simulator's payer priors**,
+> and hitting it says nothing about production performance. Real dunning recovery
+> is generally reported far lower. See [LIMITATIONS.md](LIMITATIONS.md) §2.5.
 
 **Winner definition (frozen):** higher `net_recovered_inr` — see [`SCORING.md`](SCORING.md).
 
@@ -39,7 +45,9 @@ Recovery % / ₹ advantage  ←  taxonomy.yaml + payer_model + simulate + costs
                            (batch harness — NOT Ollama, NOT Inherent alone)
 
 Demo “AI feels smart”     ←  RAG retrieval + prompt evidence + gates + Razorpay edge
-Judge trust               ←  seed 42, methodology, multi-seed, ledger audit
+Judge trust               ←  seed 42, methodology, ledger audit
+                           (multi-seed was planned here but never published —
+                            LIMITATIONS.md §2.8)
 ```
 
 **Do not** claim batch INR lift from RAG until Sprint 6 ships a controlled ablation.
@@ -50,17 +58,17 @@ Judge trust               ←  seed 42, methodology, multi-seed, ledger audit
 cd recovery-agent
 
 # Headline (rules batch)
-..\tools\python.cmd eval\harness.py --benchmark --seed 42 --n 500
-..\tools\python.cmd eval\harness.py --benchmark --seed 42 --n 1000
+python -m eval.harness --benchmark --seed 42 --n 500
+python -m eval.harness --benchmark --seed 42 --n 1000
 
-# Multi-seed (anti cherry-pick)
-..\tools\python.cmd eval\harness.py --benchmark --seeds 42-51 --n 200
+# Multi-seed (anti cherry-pick) — supported, never published
+python -m eval.harness --benchmark --seeds 42-51 --n 200
 
 # UI
 # Stats → seed 42, N=500 or 1000 → Run evaluation
 
-# RAG seed (corpus)
-..\tools\python.cmd -c "import sys; sys.path.insert(0,'.'); from memory.seed import main; raise SystemExit(main(['--seeds','42-51','--n','200','--force','--validate']))"
+# RAG seed (corpus) — requires a running Inherent instance, see docs/SETUP.md
+python -m memory.seed --seeds 42-51 --n 200 --force --validate
 ```
 
 ---

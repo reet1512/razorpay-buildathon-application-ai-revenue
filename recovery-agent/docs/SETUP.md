@@ -104,7 +104,7 @@ curl -X POST http://127.0.0.1:8000/demo/replay
 Optional. Enables real LLM diagnosis, action proposal, and message drafting on the
 case path. It does **not** change the benchmark: the batch deliberately uses
 taxonomy rules so the headline stays reproducible (see
-[LIMITATIONS.md](LIMITATIONS.md) §9).
+[LIMITATIONS.md](LIMITATIONS.md) §3.1).
 
 Install from [ollama.com/download](https://ollama.com/download), then:
 

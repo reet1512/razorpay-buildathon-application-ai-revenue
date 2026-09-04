@@ -98,10 +98,16 @@ python -m eval.harness --benchmark --seed 42 --n 500
 # Larger N (less sampling noise — does NOT improve the policy)
 python -m eval.harness --benchmark --seed 42 --n 1000
 
-# Multi-seed (avoid cherry-picking)
+# Multi-seed (avoid cherry-picking) — SUPPORTED BUT NOT PUBLISHED
 python -m eval.harness --benchmark --multi-seed --n 200
 python -m eval.harness --benchmark --seeds 42-51 --n 1000 --show-cases 20
 ```
+
+> **Honest status of the multi-seed commands above:** they work, but **we never
+> published the sweep.** Every result in this repository is seed 42, at
+> n=200/500/1000. Single-seed reporting cannot distinguish a real effect from a
+> favourable draw, and this is the cheapest outstanding fix to our credibility.
+> Tracked in [LIMITATIONS.md](LIMITATIONS.md) §2.8.
 
 ## Phase 5 AI (Ollama qwen3:8b)
 
@@ -109,16 +115,25 @@ python -m eval.harness --benchmark --seeds 42-51 --n 1000 --show-cases 20
 - Policy `validate_proposal` always bounds the verb.
 - If Ollama is down: `rules_fallback` (exit check).
 - Seeded batch INR numbers (`eval.harness --policy ours`) stay on **taxonomy rules**
-  so the headline metric remains reproducible. Report AI contribution via demo cases
-  + ablation notes, not by making n=500 non-deterministic.
+  so the headline metric remains reproducible. The AI contribution is therefore
+  shown qualitatively through demo cases, **not** as a rupee figure — no AI-vs-rules
+  ablation was run ([LIMITATIONS.md](LIMITATIONS.md) §3.3).
 
 ## Gate blocks on the batch UI
 
 `eval/gate_estimate.py` walks each policy plan through the same gate functions
-(daytime IST clock) and counts refusals. This is a **compliance pressure**
-counter for the Batch screen — money metrics still come only from `compute_metrics`.
+(daytime IST clock) and counts refusals. This is a **safety-pressure** counter for
+the Batch screen — how often each policy would be refused — and money metrics
+still come only from `compute_metrics`.
+
+It is not a regulatory measure: no RBI or card-network rule is enforced anywhere
+in this codebase ([LIMITATIONS.md](LIMITATIONS.md) §4.4–§4.5).
 
 ## Ablation (what to say on stage)
+
+> These are **demonstrations, not measurements.** None of the rows below isolates
+> the LLM's causal contribution, and no such experiment exists in this repo. The
+> only quantified comparison is policy-vs-policy on the deterministic batch.
 
 | Comparison | Command / surface | Claim |
 |---|---|---|

@@ -7,6 +7,26 @@
 
 ---
 
+> ## ⚠️ Historical build guide
+>
+> Kept for provenance. This described the *intended* build; it is not a
+> description of the delivered system.
+>
+> **Source of truth for current state:** [`README.md`](README.md) and
+> [`recovery-agent/docs/LIMITATIONS.md`](recovery-agent/docs/LIMITATIONS.md).
+>
+> Divergences worth flagging:
+> - The gate pipeline here lists **five** gates; the code ships **six**
+>   (`prohibited_recovery` is missing from this doc's diagram).
+> - The note about running the batch metric with `mode=ai` or cached AI proposals
+>   was **not** how it shipped: the n=500 batch is deterministic rules only, and no
+>   `eval/` module imports the LLM (LIMITATIONS §3.1).
+> - "Batch summary" as an LLM responsibility did not ship.
+> - Reconcile-before-retry is real but **Razorpay-adapter only** — not in the sim
+>   executor and not in the batch evaluation (LIMITATIONS §4.3).
+
+---
+
 # 0. How to use this guide
 
 1. Do **not** start Day 1 with the LLM. Build scoreboard + schemas first.  

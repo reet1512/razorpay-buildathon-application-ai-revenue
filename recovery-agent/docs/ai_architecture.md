@@ -60,6 +60,18 @@ Gates run **after** the agent in product paths (`demo/live_flow.py`, `execute/se
 
 ## 2. Target architecture (planned)
 
+> **Status note (added at submission).** This document was written as a *design*
+> document, and its "planned / not wired" markers are now partly stale: RAG
+> retrieval **is** live on the case path (`memory/rag.py::retrieve_for_payment`,
+> called from `api/routes_agent.py` and `demo/live_flow.py`, with episodes passed
+> into `RecoveryAgent.run()` and rendered into the diagnose/propose prompts), and
+> the episode corpus was seeded. Phases 2, 3 and 5 in §9 are done.
+>
+> What remains genuinely absent is the **measurement**: there is no RAG-vs-baseline
+> evaluation and no LLM accuracy number anywhere in this repo
+> ([LIMITATIONS.md](LIMITATIONS.md) §3.3). Treat the phase table below as the
+> original roadmap, not as current state.
+
 ```text
 Payment failure
       ↓
@@ -123,7 +135,7 @@ Recovery Agent uses **Inherent** as external semantic memory. Inherent manages i
 - Connect to Inherent Postgres/Mongo/Valkey directly
 - Add Chroma, FAISS, Pinecone, or a second vector DB
 
-**Phase 1 boundary:** `memory/` package exposes `InherentMemoryService`. No other module calls Inherent HTTP directly. **Not wired** to `RecoveryAgent.run()` yet.
+**Phase 1 boundary:** `memory/` package exposes `InherentMemoryService`. No other module calls Inherent HTTP directly. *(Superseded: retrieval is now wired to the case path via `memory/rag.py::retrieve_for_payment`, whose results are passed into `RecoveryAgent.run()` as prompt evidence. `ai/` still does not import `memory/` directly — the caller injects episodes.)*
 
 ### API contract status
 
@@ -222,10 +234,10 @@ RAG must **never** be a single point of failure.
 |---|---|---|
 | **0** | This document | ✅ |
 | **1** | `memory/` Inherent adapter, schemas, episode text, tests | ✅ |
-| **2** | Seed Inherent from eval seeds 42–51 | planned |
-| **3** | Retrieval on payment failure | planned |
+| **2** | Seed Inherent from eval seeds 42–51 | ✅ (2,000 episodes) |
+| **3** | Retrieval on payment failure | ✅ (`memory/rag.py`, case path) |
 | **4** | Historical statistics layer | planned |
-| **5** | RAG evidence in Qwen prompts | planned |
+| **5** | RAG evidence in Qwen prompts | ✅ (`ai/prompts.py`) |
 | **6** | Model routing (deterministic / RAG / LLM) | planned |
 | **7** | Outcome → memory feedback loop | planned |
 | **8** | RAG vs baseline eval (same seeds) | planned |
@@ -263,4 +275,9 @@ memory/
   service.py       InherentMemoryService — app-facing async API
 ```
 
-No imports from `memory/` exist yet in `ai/`, `guard/`, `ledger/`, or `eval/` product paths.
+**Current import boundary.** `ai/`, `guard/`, `ledger/`, and `eval/` do not import
+`memory/`. Retrieval is performed by the *callers* — `api/routes_agent.py` and
+`demo/live_flow.py` — which call `memory/rag.py::retrieve_for_payment` and pass the
+resulting episodes into `RecoveryAgent.run()` as prompt evidence. The agent itself
+stays unaware of where the evidence came from, and `eval/` never touches RAG at
+all, which is what keeps the batch benchmark deterministic.

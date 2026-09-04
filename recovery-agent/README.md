@@ -91,7 +91,7 @@ POST /agent/run
 
 Without Ollama the agent returns `proposed_by: rules_fallback` and everything else
 behaves identically. The LLM is not in the batch path — see
-[docs/LIMITATIONS.md](docs/LIMITATIONS.md) §9 for why, and what that costs us.
+[docs/LIMITATIONS.md](docs/LIMITATIONS.md) §3.1 for why, and what that costs us.
 
 ## Optional: real Payment Link (test mode)
 
@@ -142,7 +142,7 @@ Three kinds of truth, deliberately kept apart:
    readable by the policy.
 
 The third one is why the evaluation is meaningful at all, and also the source of
-its main weakness ([LIMITATIONS.md](docs/LIMITATIONS.md) §1).
+its main weakness ([LIMITATIONS.md](docs/LIMITATIONS.md) §2.1).
 
 ## Baselines
 
