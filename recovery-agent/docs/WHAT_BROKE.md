@@ -102,3 +102,25 @@ order.
 **Lesson:** module-level `os.environ` writes in tests are shared mutable state.
 This one was invisible for weeks because it only manifested as a wrong-looking
 401 in an unrelated file.
+
+## 9. Tests that only passed because of leftover local state
+
+**Broke:** the very first CI run failed with
+`sqlite3.OperationalError: no such table: processed_events`. Locally the same
+suite was green.
+
+`tests/test_fraud_gate_demo.py` reaches for the shared `SessionLocal` without
+building its own engine and without going through `TestClient(app)` — so nothing
+ever called `init_db()`. It passed on our machine purely because a `recovery.db`
+from an earlier manual run already had the tables. On a clean clone, with no
+database file, it failed.
+
+**Got out:** added `tests/conftest.py` with a session-scoped autouse fixture that
+calls `init_db()` before any test. Verified by pointing `DATABASE_URL` at a fresh
+file: the failure reproduces exactly without the fixture and the full suite passes
+with it.
+
+**Lesson:** this is precisely the bug CI exists to catch, and we would not have
+found it by hand — the local environment had silently accumulated the state the
+test depended on. "Works on my machine" was literally true and completely
+misleading.
