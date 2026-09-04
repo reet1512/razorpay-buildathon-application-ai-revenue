@@ -14,9 +14,9 @@ from eval.costing import compute_case_costs, paise_to_inr
 from eval.costing import _executed_actions  # authoritative executed-action list
 from eval.recovery_class import RecoveryClass, recovery_class_for
 from eval.simulate import run_case
-from eval.types import CaseOutcome, PlannedAction, SimCase, SimVerb
+from eval.types import CaseOutcome, SimCase, SimVerb
 
-from memory.constants import DATA_SOURCE, SIMULATION_VERSION
+from memory.constants import SIMULATION_VERSION
 from memory.identity import logical_episode_id
 from memory.schemas import DataSource, EpisodeOutcome, PaymentEpisode
 from policy.schemas import ActionVerb

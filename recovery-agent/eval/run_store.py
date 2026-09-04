@@ -12,7 +12,7 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
-from typing import Any, Optional
+from typing import Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field

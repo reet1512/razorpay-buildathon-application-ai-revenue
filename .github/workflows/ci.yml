@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: lint + tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: recovery-agent
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        # requirements.txt is fully pinned and includes pytest + ruff, so CI
+        # installs exactly what a reviewer following docs/SETUP.md installs.
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Tests
+        # No .env, no Ollama, no Inherent, no Razorpay keys in CI.
+        # The suite must pass with every external dependency absent — that is
+        # the reproducibility contract for anyone cloning this repo.
+        env:
+          APP_ENV: dev
+        run: pytest -q
+
+      - name: Secret scan
+        run: python scripts/check_no_secrets.py
+
+      - name: Headline benchmark is reproducible
+        # Guards the number quoted in the README. If the seeded result drifts,
+        # this fails and the docs get fixed instead of silently going stale.
+        # Script form (not -m) so the same command works under the bundled
+        # Windows embeddable runtime, whose ._pth excludes the CWD.
+        run: python eval/harness.py --benchmark --seed 42 --n 500

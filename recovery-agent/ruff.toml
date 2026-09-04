@@ -1,0 +1,25 @@
+# Ruff config — deliberately narrow.
+#
+# We lint for things that are bugs (syntax errors, undefined names, unused
+# imports/variables, f-string mistakes) rather than for style. A hackathon repo
+# does not benefit from a 40-rule style gate, and a lint suite that nobody can
+# keep green is worse than none: CI must mean something when it is red.
+
+target-version = "py312"
+line-length = 100
+
+exclude = [
+    ".venv",
+    "__pycache__",
+    "artifacts",
+    "data",
+]
+
+[lint]
+# E9  — syntax / IO errors
+# F   — pyflakes: undefined names, unused imports, bad f-strings, redefinitions
+select = ["E9", "F"]
+
+[lint.per-file-ignores]
+# Test modules import fixtures and symbols for side effects and readability.
+"tests/*" = ["F811"]

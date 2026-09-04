@@ -5,7 +5,6 @@ tests/test_inherent_memory.py — Inherent adapter + Phase 2 memory tests.
 from __future__ import annotations
 
 import asyncio
-import json
 from typing import Any
 from unittest.mock import AsyncMock, patch
 

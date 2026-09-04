@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from guard.context import GuardContext
 from guard.gates import GateCheck, all_passed, run_gates
 from guard.stops import StopReason, apply_stop, is_case_stopped
-from ledger import writer
+from ledger import reader, writer
 from ledger.models import CaseRow
 from ledger.schemas import CaseStatus, GateResult, LedgerActor, LedgerKind
 from policy.schemas import Action
@@ -106,6 +106,13 @@ def guard_and_maybe_execute(
             skipped_because_stopped=True,
         )
 
+    # Durable idempotency: rebuild already-executed fingerprints from the ledger
+    # before gates run. Doing this here (not at each call site) means every
+    # path — /execute/run, live demo, replay — gets it for free.
+    # An explicitly populated set is respected so callers/tests can inject one.
+    if not ctx.executed_fingerprints:
+        ctx.executed_fingerprints = reader.executed_fingerprints(session, case.id)
+
     checks = run_gates(ctx)
     audit_meta = dict(audit or {})
     if ctx.action.proposed_by is not None:
@@ -149,13 +156,14 @@ def guard_and_maybe_execute(
             actor=LedgerActor.system,
             payload={
                 "action": ctx.action.model_dump(mode="json"),
+                "action_fingerprint": ctx.action_fingerprint,
                 "execute_result": exec_result,
             },
             reason_code=ctx.action.reason_code or ctx.action.verb.value,
             policy_version=policy_version,
         )
-        # Track fingerprint as executed for idempotency
-        # (caller may persist fingerprints; for in-memory ctx we mutate set)
+        # Also mark in-memory so a caller looping over several actions in one
+        # request de-duplicates before this transaction commits.
         ctx.executed_fingerprints.add(ctx.action_fingerprint or "")
 
     session.flush()

@@ -1,12 +1,23 @@
-# Phase 0/1 dependencies.
-# Install with: py -3 -m pip install -r requirements.txt
-fastapi
-uvicorn[standard]
-pydantic
-python-dotenv
-sqlalchemy
-pytest
-httpx
-pyyaml
-jinja2
-python-multipart
+# Runtime + test dependencies.
+#
+# Versions are pinned so a reviewer cloning this months from now gets the same
+# behaviour we measured, rather than whatever major version ships that week.
+# Install with:  pip install -r requirements.txt
+#
+# Note what is NOT here: no ollama SDK, no razorpay SDK, no ML libraries.
+# Both optional services are reached over plain httpx, which is why the project
+# runs with nothing installed but these.
+
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+pydantic==2.13.4
+python-dotenv==1.2.3
+sqlalchemy==2.0.52
+httpx==0.28.1
+pyyaml==6.0.3
+jinja2==3.1.6
+python-multipart==0.0.32
+
+# Test + lint
+pytest==9.1.1
+ruff==0.16.6

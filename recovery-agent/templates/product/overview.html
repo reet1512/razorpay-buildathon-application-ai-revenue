@@ -19,11 +19,15 @@
 <div class="p-banner p-banner--info">{{ error }}</div>
 {% endif %}
 
+{% if eval_ui.has_run %}
 <section class="j-hero-primary" aria-label="Primary metric">
   <p class="p-kicker">Primary metric</p>
   <p class="j-hero-primary__label">Net advantage (Ours − B2)</p>
   <p class="j-hero-primary__value">+₹{{ "{:,.0f}".format(eval_ui.advantage_inr) }}</p>
-  <p class="j-hero-primary__note">On {{ eval_ui.n_cases }} seeded cases — the number judges should remember</p>
+  <p class="j-hero-primary__note">
+    Seed {{ eval_ui.run.seed }} · n={{ eval_ui.n_cases }} · seeded simulation;
+    assumptions and limits in <code>docs/METHODOLOGY.md</code> and <code>docs/LIMITATIONS.md</code>
+  </p>
 </section>
 
 <section class="j-compare" aria-label="Ours versus baseline">
@@ -53,6 +57,18 @@
     </article>
   </div>
 </section>
+{% else %}
+<section class="j-hero-primary" aria-label="No evaluation run yet">
+  <p class="p-kicker">Primary metric</p>
+  <p class="j-hero-primary__label">Net advantage (Ours − B2)</p>
+  <p class="j-hero-primary__value">—</p>
+  <p class="j-hero-primary__note">
+    No evaluation run stored yet. Run seed 42 · n=500 above, or from the CLI:
+    <code>python -m eval.harness --benchmark --seed 42 --n 500</code>.
+    This screen shows measured numbers only — nothing is pre-filled.
+  </p>
+</section>
+{% endif %}
 
 <p class="j-section-label">Why Ours wins · AI stack</p>
 <div class="j-stack-grid">
@@ -61,9 +77,9 @@
     <p class="j-stack-value">{{ ollama_model if ollama_up else "Rules fallback" }}</p>
     <p class="p-text-muted">LLM proposes · policy validates · gates dispose</p>
     <dl class="p-stat-grid j-stack-stats">
-      <div class="p-stat"><dt>Success rate</dt><dd>{{ eval_ui.recovery_rate_ours }}%</dd></div>
+      <div class="p-stat"><dt>Success rate</dt><dd>{% if eval_ui.has_run %}{{ eval_ui.recovery_rate_ours }}%{% else %}—{% endif %}</dd></div>
       <div class="p-stat"><dt>LLM</dt><dd>{% if ollama_up %}<span class="p-badge p-badge--success">Live</span>{% else %}<span class="p-badge p-badge--muted">Offline</span>{% endif %}</dd></div>
-      <div class="p-stat"><dt>Wasted attempts</dt><dd>{{ eval_ui.wasted_ours }} <span class="p-text-muted">vs {{ eval_ui.wasted_baseline }}</span></dd></div>
+      <div class="p-stat"><dt>Wasted attempts</dt><dd>{% if eval_ui.has_run %}{{ eval_ui.wasted_ours }} <span class="p-text-muted">vs {{ eval_ui.wasted_baseline }}</span>{% else %}—{% endif %}</dd></div>
     </dl>
   </article>
   <article
@@ -97,8 +113,8 @@
     <p class="j-stack-value">Gate-first</p>
     <p class="p-text-muted">Fraud / contact / attempt caps refuse unsafe actions before money moves</p>
     <dl class="p-stat-grid j-stack-stats">
-      <div class="p-stat"><dt>Gate blocks</dt><dd>{{ eval_ui.gate_blocks_ours }} <span class="p-text-muted">vs {{ eval_ui.gate_blocks_baseline }}</span></dd></div>
-      <div class="p-stat"><dt>Cost / ₹</dt><dd>{{ eval_ui.cost_per_rupee_ours }} <span class="p-text-muted">vs {{ eval_ui.cost_per_rupee_baseline }}</span></dd></div>
+      <div class="p-stat"><dt>Gate blocks</dt><dd>{% if eval_ui.has_run and eval_ui.gate_blocks_ours is not none %}{{ eval_ui.gate_blocks_ours }} <span class="p-text-muted">vs {{ eval_ui.gate_blocks_baseline }}</span>{% else %}—{% endif %}</dd></div>
+      <div class="p-stat"><dt>Cost / ₹</dt><dd>{% if eval_ui.has_run and eval_ui.cost_per_rupee_ours is not none %}{{ eval_ui.cost_per_rupee_ours }} <span class="p-text-muted">vs {{ eval_ui.cost_per_rupee_baseline }}</span>{% else %}—{% endif %}</dd></div>
     </dl>
   </article>
 </div>

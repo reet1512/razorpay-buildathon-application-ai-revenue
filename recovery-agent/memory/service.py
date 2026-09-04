@@ -6,7 +6,7 @@ Not wired to RecoveryAgent yet (Phase 2). Safe to import; no side effects when d
 
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import Optional
 
 from logging_util import slog
 

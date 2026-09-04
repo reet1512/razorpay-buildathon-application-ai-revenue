@@ -9,7 +9,7 @@ import pytest
 from config.costs import clear_cost_overrides, set_cost_overrides
 from eval.baselines import POLICIES, baseline_b2
 from eval.batch import generate_batch
-from eval.costing import compute_batch_costs, compute_case_costs
+from eval.costing import compute_case_costs
 from eval.metrics import BatchMetrics, compute_metrics
 from eval.recovery_class import RecoveryClass, recovery_class_for
 from eval.simulate import run_batch
@@ -17,9 +17,7 @@ from eval.types import (
     CaseOutcome,
     FailureReason,
     HiddenPayerTruth,
-    PlannedAction,
     SimCase,
-    SimVerb,
     VisibleCase,
 )
 

@@ -7,7 +7,6 @@ from eval.benchmark import run_multi_seed, worst_seed_for_ours
 from eval.break_even import solve_break_even
 from eval.segments import compute_segment_compare
 from eval.service import run_eval
-from eval.benchmark import compare_seed
 
 
 def test_multi_seed_has_percentiles_and_worst_seed():
@@ -23,7 +22,6 @@ def test_multi_seed_has_percentiles_and_worst_seed():
 
 
 def test_segment_compare_covers_classes():
-    pair = compare_seed(42, 200)
     from eval.batch import generate_batch
     from eval.baselines import POLICIES
     from eval.simulate import run_batch

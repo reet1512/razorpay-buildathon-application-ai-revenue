@@ -454,49 +454,90 @@ def historical_page_context() -> dict[str, Any]:
     }
 
 
-def evaluate_ui_context(run=None, by_label=None) -> dict[str, Any]:
-    mock = {
-        "ours_inr": 489604,
-        "baseline_inr": 382467,
-        "advantage_inr": 107137,
-        "recovery_rate_ours": 74.7,
-        "recovery_rate_baseline": 59.8,
-        "cost_per_rupee_ours": 0.082,
-        "cost_per_rupee_baseline": 0.091,
-        "wasted_ours": 0,
-        "wasted_baseline": 258,
-        "gate_blocks_ours": 18,
-        "gate_blocks_baseline": 22,
-        "n_cases": 500,
-        "run_history": [
-            {"run_id": "run_a1b2c3", "seed": 42, "n": 500, "advantage": "+₹107,137", "date": "26 Aug 2026"},
-            {"run_id": "run_d4e5f6", "seed": 42, "n": 1000, "advantage": "+₹220,426", "date": "26 Aug 2026"},
-        ],
+def _run_history_rows(limit: int = 5) -> list[dict[str, Any]]:
+    """Real stored eval runs, newest first. Empty list when nothing has been run."""
+    try:
+        from eval.run_store import get_store
+
+        rows = get_store().list_runs(limit=limit)
+    except Exception:
+        return []
+
+    history: list[dict[str, Any]] = []
+    for rec in rows:
+        delta = rec.delta_net_ours_vs_b2_inr
+        history.append(
+            {
+                "run_id": rec.run_id,
+                "seed": rec.seed,
+                "n": rec.n,
+                "advantage": f"{delta:+,.0f}" if delta is not None else "—",
+                "date": rec.created_at[:10],
+            }
+        )
+    return history
+
+
+def evaluate_ui_context(run=None, by_label=None, history=None) -> dict[str, Any]:
+    """
+    Metric context for the Stats / Evaluate screens.
+
+    HONESTY RULE: every rupee value here is computed from a stored EvalRunRecord.
+    With no run we return None for each metric and has_run=False; templates must
+    gate on has_run and render an em dash. We never ship illustrative numbers
+    where a reader could mistake them for measured results.
+    """
+    ctx: dict[str, Any] = {
+        "has_run": False,
+        "run": None,
+        "by_label": None,
+        "default_seed": 42,
+        "default_n": 500,
+        "ours_inr": None,
+        "baseline_inr": None,
+        "advantage_inr": None,
+        "recovery_rate_ours": None,
+        "recovery_rate_baseline": None,
+        "cost_per_rupee_ours": None,
+        "cost_per_rupee_baseline": None,
+        "wasted_ours": None,
+        "wasted_baseline": None,
+        "gate_blocks_ours": None,
+        "gate_blocks_baseline": None,
+        "n_cases": None,
+        "run_history": history if history is not None else _run_history_rows(),
     }
-    if run and by_label and by_label.get("ours") and by_label.get("b2"):
-        ours = by_label["ours"]
-        b2 = by_label["b2"]
-        mock["ours_inr"] = int(ours.net_recovered_inr)
-        mock["baseline_inr"] = int(b2.net_recovered_inr)
-        mock["advantage_inr"] = int(run.delta_net_ours_vs_b2_inr or 0)
-        mock["recovery_rate_ours"] = round(ours.recovery_rate * 100, 1) if ours.recovery_rate else mock["recovery_rate_ours"]
-        mock["recovery_rate_baseline"] = round(b2.recovery_rate * 100, 1) if b2.recovery_rate else mock["recovery_rate_baseline"]
-        mock["n_cases"] = run.n
-        mock["wasted_ours"] = getattr(ours, "wasted_attempts", mock["wasted_ours"])
-        mock["wasted_baseline"] = getattr(b2, "wasted_attempts", mock["wasted_baseline"])
-        if getattr(run, "gate_blocks", None):
-            mock["gate_blocks_ours"] = run.gate_blocks.get("ours", mock["gate_blocks_ours"])
-            mock["gate_blocks_baseline"] = run.gate_blocks.get("b2", mock["gate_blocks_baseline"])
-        if ours.cost_per_rupee_recovered is not None and ours.cost_per_rupee_recovered >= 0:
-            mock["cost_per_rupee_ours"] = round(ours.cost_per_rupee_recovered, 3)
-        if b2.cost_per_rupee_recovered is not None and b2.cost_per_rupee_recovered >= 0:
-            mock["cost_per_rupee_baseline"] = round(b2.cost_per_rupee_recovered, 3)
-        mock["has_run"] = True
-        mock["run"] = run
-        mock["by_label"] = by_label
-    else:
-        mock["has_run"] = False
-    return mock
+
+    if not (run and by_label and by_label.get("ours") and by_label.get("b2")):
+        return ctx
+
+    ours = by_label["ours"]
+    b2 = by_label["b2"]
+
+    ctx["has_run"] = True
+    ctx["run"] = run
+    ctx["by_label"] = by_label
+    # Round rather than truncate: int(107136.76) would render ₹107,136 while
+    # every doc and CLI report says ₹107,137 for the same run.
+    ctx["ours_inr"] = round(ours.net_recovered_inr)
+    ctx["baseline_inr"] = round(b2.net_recovered_inr)
+    ctx["advantage_inr"] = round(run.delta_net_ours_vs_b2_inr or 0)
+    ctx["n_cases"] = run.n
+    ctx["recovery_rate_ours"] = round((ours.recovery_rate or 0.0) * 100, 1)
+    ctx["recovery_rate_baseline"] = round((b2.recovery_rate or 0.0) * 100, 1)
+    ctx["wasted_ours"] = getattr(ours, "wasted_attempts", None)
+    ctx["wasted_baseline"] = getattr(b2, "wasted_attempts", None)
+
+    gate_blocks = getattr(run, "gate_blocks", None) or {}
+    ctx["gate_blocks_ours"] = gate_blocks.get("ours")
+    ctx["gate_blocks_baseline"] = gate_blocks.get("b2")
+
+    if ours.cost_per_rupee_recovered is not None and ours.cost_per_rupee_recovered >= 0:
+        ctx["cost_per_rupee_ours"] = round(ours.cost_per_rupee_recovered, 3)
+    if b2.cost_per_rupee_recovered is not None and b2.cost_per_rupee_recovered >= 0:
+        ctx["cost_per_rupee_baseline"] = round(b2.cost_per_rupee_recovered, 3)
+
+    return ctx
 
 
 def api_docs_context() -> dict[str, Any]:

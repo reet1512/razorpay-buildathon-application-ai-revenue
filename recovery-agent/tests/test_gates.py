@@ -11,7 +11,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from guard.context import GuardContext
-from guard.gates import gate_contact_window, gate_prohibited_recovery, run_gates, all_passed
+from guard.gates import gate_contact_window, gate_prohibited_recovery
 from guard.pipeline import guard_and_maybe_execute
 from ledger.db import Base
 from ledger.models import CaseRow

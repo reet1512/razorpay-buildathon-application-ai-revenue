@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import random
 
-import pytest
 
 from eval.baselines import baseline_b2
 from eval.batch import generate_batch

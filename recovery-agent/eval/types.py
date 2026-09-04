@@ -10,9 +10,12 @@ Teaching:
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:  # pragma: no cover - import only for type checkers
+    from eval.recovery_class import RecoveryClass
 
 
 class SimVerb(str, Enum):

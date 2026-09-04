@@ -18,6 +18,7 @@
 
 <section class="p-card">
   <div class="p-card-body">
+    {% if eval_ui.has_run %}
     <div class="p-kpi-row" style="margin-bottom:0">
       <div class="p-metric">
         <p class="p-metric-label">AI recovery</p>
@@ -36,6 +37,13 @@
         <p class="p-metric-value">{{ eval_ui.recovery_rate_ours }}%</p>
       </div>
     </div>
+    {% else %}
+    <p class="p-text-muted" style="margin:0">
+      No evaluation run stored yet. Run seed 42 · n=200 above, or
+      <code>python -m eval.harness --benchmark --seed 42 --n 500</code>.
+      Only measured numbers are shown here.
+    </p>
+    {% endif %}
   </div>
 </section>
 
@@ -43,6 +51,7 @@
   <section class="p-card">
     <div class="p-card-head"><h2 class="p-card-title">Recovery rate</h2></div>
     <div class="p-card-body">
+      {% if eval_ui.has_run %}
       <div class="p-bar-h-row">
         <div class="p-bar-h-head"><span>AI Recovery</span><span>{{ eval_ui.recovery_rate_ours }}%</span></div>
         <div class="p-bar-h-track"><div class="p-bar-h-fill" style="width: {{ eval_ui.recovery_rate_ours }}%"></div></div>
@@ -51,15 +60,18 @@
         <div class="p-bar-h-head"><span>Baseline</span><span>{{ eval_ui.recovery_rate_baseline }}%</span></div>
         <div class="p-bar-h-track"><div class="p-bar-h-fill" style="width: {{ eval_ui.recovery_rate_baseline }}%;background:#94A3B8"></div></div>
       </div>
+      {% else %}
+      <p class="p-text-muted" style="margin:0">No run yet — nothing to chart.</p>
+      {% endif %}
     </div>
   </section>
   <section class="p-card">
     <div class="p-card-head"><h2 class="p-card-title">Experiment efficiency</h2></div>
     <div class="p-card-body">
       <dl class="p-stat-grid">
-        <div class="p-stat"><dt>Cost / ₹ recovered</dt><dd>{{ eval_ui.cost_per_rupee_ours }} vs {{ eval_ui.cost_per_rupee_baseline }}</dd></div>
-        <div class="p-stat"><dt>Wasted attempts</dt><dd>{{ eval_ui.wasted_ours }} vs {{ eval_ui.wasted_baseline }}</dd></div>
-        <div class="p-stat"><dt>Gate blocks</dt><dd>{{ eval_ui.gate_blocks_ours }} vs {{ eval_ui.gate_blocks_baseline }}</dd></div>
+        <div class="p-stat"><dt>Cost / ₹ recovered</dt><dd>{% if eval_ui.cost_per_rupee_ours is not none %}{{ eval_ui.cost_per_rupee_ours }} vs {{ eval_ui.cost_per_rupee_baseline }}{% else %}—{% endif %}</dd></div>
+        <div class="p-stat"><dt>Wasted attempts</dt><dd>{% if eval_ui.wasted_ours is not none %}{{ eval_ui.wasted_ours }} vs {{ eval_ui.wasted_baseline }}{% else %}—{% endif %}</dd></div>
+        <div class="p-stat"><dt>Gate blocks</dt><dd>{% if eval_ui.gate_blocks_ours is not none %}{{ eval_ui.gate_blocks_ours }} vs {{ eval_ui.gate_blocks_baseline }}{% else %}—{% endif %}</dd></div>
       </dl>
     </div>
   </section>
@@ -80,6 +92,8 @@
             <td class="num">{{ r.advantage }}</td>
             <td>{{ r.date }}</td>
           </tr>
+          {% else %}
+          <tr><td colspan="5" class="p-text-muted">No evaluation runs stored yet.</td></tr>
           {% endfor %}
         </tbody>
       </table>

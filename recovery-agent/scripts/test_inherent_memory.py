@@ -11,7 +11,6 @@ Requires INHERENT_ENABLED=true and a valid INHERENT_API_KEY.
 from __future__ import annotations
 
 import asyncio
-import os
 import sys
 from pathlib import Path
 
@@ -23,18 +22,14 @@ from dotenv import load_dotenv
 
 load_dotenv(ROOT / ".env")
 
-from eval.recovery_class import RecoveryClass
 from eval.types import FailureReason
-from ledger.schemas import Rail
 from memory.episode_factory import payment_episode_from_case
 from memory.episode_text import build_episode_text
 from memory.inherent_client import InherentClient, InherentConfig, is_completed_status
-from memory.schemas import DataSource, EpisodeOutcome, PaymentEpisode
-from policy.schemas import ActionVerb
+from memory.schemas import PaymentEpisode
 
 
 def _synthetic_episode() -> PaymentEpisode:
-    from eval.payer_model import sample_hidden_truth
     from eval.types import CaseOutcome, HiddenPayerTruth, SimCase, VisibleCase
 
     hidden = HiddenPayerTruth(

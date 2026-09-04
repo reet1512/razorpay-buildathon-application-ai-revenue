@@ -135,7 +135,10 @@ def gate_idempotency(ctx: GuardContext) -> GateCheck:
     """
     Block if this exact action fingerprint was already executed.
 
-    Prevents double-charge / double-message on webhook retries.
+    Prevents double-charge / double-message on webhook retries. The set of
+    already-executed fingerprints is rebuilt from the ledger by the pipeline
+    (see guard/pipeline.py), so this survives process restarts and separate
+    HTTP requests — not just one in-memory context.
     """
     name = "idempotency"
     fp = ctx.action_fingerprint or fingerprint_action(ctx)
@@ -143,9 +146,33 @@ def gate_idempotency(ctx: GuardContext) -> GateCheck:
     return GateCheck(name, ok, "GATE_IDEM_OK" if ok else "GATE_IDEM")
 
 
+def compose_fingerprint(
+    *,
+    case_id: str,
+    verb: str,
+    day_offset: object,
+    channel: str,
+    reason_code: str,
+) -> str:
+    """
+    Single source of truth for fingerprint composition.
+
+    Both the live context (fingerprint_action) and the ledger replay
+    (ledger.reader.executed_fingerprints) must produce byte-identical strings,
+    so the format lives here and nowhere else.
+    """
+    return f"{case_id}:{verb}:{day_offset}:{channel}:{reason_code}"
+
+
 def fingerprint_action(ctx: GuardContext) -> str:
     a = ctx.action
-    return f"{ctx.case_id}:{a.verb.value}:{a.day_offset}:{a.channel.value}:{a.reason_code}"
+    return compose_fingerprint(
+        case_id=ctx.case_id,
+        verb=a.verb.value,
+        day_offset=a.day_offset,
+        channel=a.channel.value,
+        reason_code=a.reason_code,
+    )
 
 
 DEFAULT_GATES = (

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from eval.recovery_class import RecoveryClass, recovery_class_for
+from eval.recovery_class import recovery_class_for
 from eval.types import FailureReason
 from memory.rag import (
     RagMetrics,

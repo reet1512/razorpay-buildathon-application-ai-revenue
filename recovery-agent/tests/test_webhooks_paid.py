@@ -14,13 +14,21 @@ import pytest
 from fastapi.testclient import TestClient
 
 os.environ.setdefault("APP_ENV", "dev")
-os.environ["RAZORPAY_WEBHOOK_SECRET"] = "whsec_test_paid"
 
 from ledger.db import SessionLocal  # noqa: E402
 from ledger.models import CaseRow  # noqa: E402
 from ledger.schemas import CaseStatus, LedgerActor, LedgerKind  # noqa: E402
 from ledger import writer  # noqa: E402
 from main import app  # noqa: E402
+
+WEBHOOK_SECRET = "whsec_test_paid"
+
+
+@pytest.fixture(autouse=True)
+def _webhook_secret(monkeypatch):
+    """Per-test secret — see the note in tests/test_phase8_api_ui.py."""
+    monkeypatch.setenv("RAZORPAY_WEBHOOK_SECRET", WEBHOOK_SECRET)
+    monkeypatch.delenv("ALLOW_UNSIGNED_WEBHOOKS", raising=False)
 
 
 @pytest.fixture()
@@ -30,7 +38,7 @@ def client():
 
 
 def _sign(raw: bytes) -> str:
-    return hmac.new(b"whsec_test_paid", raw, hashlib.sha256).hexdigest()
+    return hmac.new(WEBHOOK_SECRET.encode(), raw, hashlib.sha256).hexdigest()
 
 
 def _seed_case_with_plink(plink_id: str) -> str:

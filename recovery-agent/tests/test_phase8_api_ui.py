@@ -14,11 +14,25 @@ import pytest
 from fastapi.testclient import TestClient
 
 os.environ.setdefault("APP_ENV", "dev")
-os.environ["RAZORPAY_WEBHOOK_SECRET"] = "whsec_test_phase8"
 
 from eval.run_store import EvalRunStore  # noqa: E402
 from eval.service import run_eval  # noqa: E402
 from main import app  # noqa: E402
+
+WEBHOOK_SECRET = "whsec_test_phase8"
+
+
+@pytest.fixture(autouse=True)
+def _webhook_secret(monkeypatch):
+    """
+    Set the secret per test, not at import time.
+
+    Module-level os.environ writes leak across test modules: pytest imports
+    every module before running any test, so the last import silently wins
+    and whichever module lost gets a 401. Scope it to the test instead.
+    """
+    monkeypatch.setenv("RAZORPAY_WEBHOOK_SECRET", WEBHOOK_SECRET)
+    monkeypatch.delenv("ALLOW_UNSIGNED_WEBHOOKS", raising=False)
 
 
 @pytest.fixture(autouse=True)
@@ -124,7 +138,7 @@ def test_webhook_ingest_with_signature(client: TestClient):
         },
     }
     raw = json.dumps(payload).encode("utf-8")
-    sig = hmac.new(b"whsec_test_phase8", raw, hashlib.sha256).hexdigest()
+    sig = hmac.new(WEBHOOK_SECRET.encode(), raw, hashlib.sha256).hexdigest()
     r = client.post(
         "/webhooks/razorpay",
         content=raw,

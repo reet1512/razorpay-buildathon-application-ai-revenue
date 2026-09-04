@@ -4,11 +4,10 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
 
-import pytest
 
-from memory.rag import RagMetrics, build_retrieval_query, probe_platform_rag
+from memory.rag import RagMetrics, build_retrieval_query
 from memory.schemas import RetrievalResult
-from api.ui_helpers import platform_metrics, rag_status_payload, build_case_view, recover_demo_context
+from api.ui_helpers import platform_metrics, rag_status_payload, build_case_view
 
 
 def test_build_retrieval_query_includes_failure_and_class():

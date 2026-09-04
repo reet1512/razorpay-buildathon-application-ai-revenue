@@ -65,7 +65,6 @@ async def razorpay_webhook(
                 "payment_link_id": result.payment_link_id,
                 "payment_id": result.payment_id,
                 "ledger_seq": result.ledger_seq,
-                "webhook": body,
             }
 
         try:

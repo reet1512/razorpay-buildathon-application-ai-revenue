@@ -49,6 +49,51 @@ def case_to_view(row: CaseRow) -> CaseView:
     )
 
 
+def executed_fingerprints(session: Session, case_id: str) -> set[str]:
+    """
+    Rebuild the set of action fingerprints already EXECUTED on this case.
+
+    Source of truth is the append-only ledger: `kind=action` rows are written
+    only after gates pass and the adapter runs (guard/pipeline.py), so replaying
+    them gives durable idempotency across separate requests and restarts.
+
+    Newer rows carry `action_fingerprint` directly; older rows are recomposed
+    from the stored Action payload using the same helper the gate uses.
+    """
+    from guard.gates import compose_fingerprint
+
+    stmt = (
+        select(LedgerEntryRow)
+        .where(LedgerEntryRow.case_id == case_id)
+        .where(LedgerEntryRow.kind == LedgerKind.action.value)
+    )
+    found: set[str] = set()
+    for row in session.scalars(stmt).all():
+        try:
+            payload = json.loads(row.payload_json or "{}")
+        except json.JSONDecodeError:
+            continue
+
+        stored = payload.get("action_fingerprint")
+        if stored:
+            found.add(str(stored))
+            continue
+
+        action = payload.get("action") or {}
+        if not action:
+            continue
+        found.add(
+            compose_fingerprint(
+                case_id=row.case_id,
+                verb=str(action.get("verb", "")),
+                day_offset=action.get("day_offset"),
+                channel=str(action.get("channel", "none")),
+                reason_code=str(action.get("reason_code", "")),
+            )
+        )
+    return found
+
+
 def find_case_id_by_plink(session: Session, plink_id: str) -> Optional[str]:
     """Resolve case from a prior outcome row that created this Payment Link."""
     stmt = (
